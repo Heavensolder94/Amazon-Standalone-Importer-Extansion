@@ -1,11 +1,22 @@
 {
   "manifest_version": 3,
   "name": "Elyon Amazon Importer",
-  "version": "1.2.15",
+  "version": "1.2.16",
   "description": "Eigenständiger Amazon Standalone Importer mit Sammelmodus, robuster Amazon-Bilderkennung, Batch-Vorbereitung, Listing Designer, DeepSeek-Textoptimierung, eBay-Kategoriesuche, Seller-Hub-Entwürfen, Elyon-Beschreibungsdesigns, automatischen Artikelmerkmalen und Slide-in-Statusmeldungen.",
+  "icons": {
+    "16": "icons/elyon-16.png",
+    "32": "icons/elyon-32.png",
+    "48": "icons/elyon-48.png",
+    "128": "icons/elyon-128.png"
+  },
   "action": {
     "default_title": "Elyon Amazon Importer",
-    "default_popup": "popup-fixed.html"
+    "default_popup": "popup-fixed.html",
+    "default_icon": {
+      "16": "icons/elyon-16.png",
+      "32": "icons/elyon-32.png",
+      "48": "icons/elyon-48.png"
+    }
   },
   "permissions": [
     "activeTab",
