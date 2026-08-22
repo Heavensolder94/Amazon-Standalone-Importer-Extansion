@@ -113,13 +113,30 @@
     return requestSellerAction(session, action, requestData || {});
   }
 
+  function sellerHubTaskErrorDetails(body) {
+    const errors = Array.isArray(body?.errors) ? body.errors : [];
+    const details = errors.slice(0, 3).map((entry) => {
+      const code = String(entry?.code || '').trim();
+      const message = String(entry?.message || entry?.longMessage || entry?.shortMessage || '').trim();
+      return [code ? `eBay ${code}` : '', message].filter(Boolean).join(' · ');
+    }).filter(Boolean);
+    if (details.length) return details.join('\n');
+
+    const message = String(body?.message || '').trim();
+    if (message && !/mit Fehlern verarbeitet/i.test(message)) return message;
+    const preview = String(body?.resultPreview || '').trim();
+    return preview ? preview.slice(0, 900) : '';
+  }
+
   function statusTextFromTask(body) {
     const status = String(body?.status || '').toUpperCase();
     if (body?.draftVisible === true || (status === 'COMPLETED' && Number(body?.failureCount || 0) === 0)) {
       return 'eBay-Entwurf erstellt ✅\nDu findest ihn jetzt im Verkäufer-Cockpit unter Angebote → Entwürfe.';
     }
     if (status === 'COMPLETED_WITH_ERROR' || Number(body?.failureCount || 0) > 0) {
-      return `eBay hat den Entwurf mit Fehlern verarbeitet. Erfolgreich: ${Number(body?.successCount || 0)} · Fehler: ${Number(body?.failureCount || 0)}.`;
+      const base = `eBay hat den Entwurf mit Fehlern verarbeitet. Erfolgreich: ${Number(body?.successCount || 0)} · Fehler: ${Number(body?.failureCount || 0)}.`;
+      const details = sellerHubTaskErrorDetails(body);
+      return details ? `${base}\n${details}` : base;
     }
     return `eBay-Entwurf wird verarbeitet …${body?.taskId ? `\nTask-ID: ${body.taskId}` : ''}\nDas kann bei eBay einige Minuten dauern.`;
   }

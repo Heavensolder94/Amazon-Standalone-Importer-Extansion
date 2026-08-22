@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Elyon Amazon Importer",
-  "version": "1.2.7",
-  "description": "Eigenständiger Amazon Standalone Importer mit automatischem Listing Designer, eBay-Kategoriesuche und echten Seller-Hub-Entwürfen.",
+  "version": "1.2.8",
+  "description": "Eigenständiger Amazon Standalone Importer mit automatischem Listing Designer, eBay-Kategoriesuche, echten Seller-Hub-Entwürfen und sichtbaren eBay-Feed-Fehlern.",
   "action": {
     "default_title": "Elyon Amazon Importer",
     "default_popup": "popup-fixed.html"
