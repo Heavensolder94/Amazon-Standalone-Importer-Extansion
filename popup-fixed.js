@@ -6,7 +6,7 @@
   let html = await response.text();
   if (!html.includes(marker)) throw new Error('popup.js Script-Marker fehlt in popup.html.');
 
-  html = html.replace(marker, `${marker}\n<script src="image-fix.js"></script>\n<script src="category-fix.js"></script>\n<script src="workflow-fix.js"></script>\n<script src="direct-ebay-bridge.js"></script>`);
+  html = html.replace(marker, `${marker}\n<script src="image-fix.js"></script>\n<script src="category-fix.js"></script>\n<script src="workflow-fix.js"></script>\n<script src="description-design-fix.js"></script>\n<script src="direct-ebay-bridge.js"></script>`);
   document.open();
   document.write(html);
   document.close();
