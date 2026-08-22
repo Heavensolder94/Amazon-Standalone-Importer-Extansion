@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Elyon Amazon Importer</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<main class="shell">
+  <section class="hero">
+    <div class="topbar">
+      <div class="brand"><div class="logo">E</div><div><h1>Elyon Amazon Importer</h1><p class="subtitle">Standalone · Amazon Recherche & Import</p></div></div>
+      <button id="openSettings" class="gear" title="Einstellungen">⚙</button>
+    </div>
+
+    <div class="integrationBar" aria-label="Integrationsstatus">
+      <button id="amazonStatusMini" class="integrationMini neutral" type="button" title="Amazon Status"><span></span>Amazon</button>
+      <button id="companyStatusMini" class="integrationMini neutral" type="button" title="Company OS Status"><span></span>Company OS</button>
+      <button id="ebayStatusMini" class="integrationMini neutral" type="button" title="eBay Status"><span></span>eBay</button>
+    </div>
+
+    <div class="headline">
+      <h2>Amazon<br>Listing Cockpit</h2>
+      <p>Amazon-Produktdaten erfassen. Der automatische Listing Designer bereitet Titel, Beschreibung, Kategorie und eBay-Pflichtmerkmale direkt im Standalone Importer vor.</p>
+      <button id="loadProduct" class="primary">Amazon-Produkt importieren</button>
+      <div id="status" class="status">Bereit. Öffne eine Amazon-Produktseite und starte den Import.</div>
+      <div class="flow"><div><b>1</b>Import</div><div><b>2</b>Designer</div><div><b>3</b>Prüfen</div><div><b>4</b>eBay</div></div>
+    </div>
+  </section>
+
+  <section class="content">
+    <section class="card targetCard">
+      <div class="head"><h3>Optionale Ziele</h3><span class="chip violet">2 Wege</span></div>
+      <div class="targetGrid">
+        <button id="sendCompanyOsMain" class="targetButton company" type="button">
+          <strong>Company OS</strong>
+          <span>Payload lokal vorbereiten / kopieren</span>
+        </button>
+        <button id="prepareDraftMain" class="targetButton ebay" type="button">
+          <strong>eBay-Entwurf</strong>
+          <span>Nur wenn das eBay-Setup technisch bereit ist</span>
+        </button>
+      </div>
+      <p class="small">Dieser Amazon Importer bleibt ein eigenständiges Standalone-Tool. Beide Ziele sind optional.</p>
+    </section>
+
+    <section class="card">
+      <div class="head"><h3>Optional: Company OS</h3><span id="companyChip" class="chip">Nicht geprüft</span></div>
+      <p id="companyText" class="small strong">Status: Company OS nicht geprüft</p>
+      <div class="btnrow three">
+        <button id="sendCompanyOs" class="btn green">JSON kopieren</button>
+        <button id="checkCompanyStatus" class="btn soft">Status</button>
+        <button id="openCompanyOs" class="btn soft">Öffnen</button>
+      </div>
+      <p class="small">Amazon bleibt als Retail-/Recherchequelle gekennzeichnet. Der Standalone-Importer speichert dafür keinen Sync-Code oder API-Schlüssel.</p>
+    </section>
+
+    <section class="card">
+      <div class="head"><h3>Optional: eBay</h3><span id="ebayChip" class="chip">Nicht geprüft</span></div>
+      <p id="ebayText" class="small strong">Status: eBay nicht geprüft</p>
+      <div class="btnrow">
+        <button id="connectEbay" class="btn blue">🔐 eBay verbinden</button>
+        <button id="checkEbayStatus" class="btn soft">Entwurfsstatus</button>
+      </div>
+      <div class="btnrow actionRow">
+        <button id="prepareDraftEbay" class="btn gold">eBay-Entwurf</button>
+        <button id="publishEbay" class="btn red">Jetzt veröffentlichen</button>
+      </div>
+      <p class="small">Entwürfe werden über die angemeldete Seller-Tool-Sitzung im Elyon-Draft-Register erfasst. Veröffentlichte Angebote erscheinen nach eBay-Abgleich unter Aktive Listings. Die Extension speichert keine eBay Tokens.</p>
+    </section>
+
+    <section class="card">
+      <div class="head"><h3>Schnell-Aktionen</h3><span class="chip gold">Vorbereitung</span></div>
+      <div class="btnrow three">
+        <button id="localOptimize" class="btn soft">Designer erneut</button>
+        <button id="copyListing" class="btn soft">Kopieren</button>
+        <button id="openEbay" class="btn soft">eBay öffnen</button>
+      </div>
+      <button id="copyOpenEbay" class="btn dark full">📋 Kopieren & bei eBay weiter bearbeiten</button>
+      <p class="small">Keine automatischen Bestellungen, keine Kundennachrichten und keine automatische Veröffentlichung.</p>
+    </section>
+
+
+    <section id="designerCard" class="card hidden">
+      <div class="head"><h3>Automatischer Listing Designer</h3><span id="designerChip" class="chip gold">Wartet</span></div>
+      <div id="designerSteps" class="designerSteps">
+        <div class="designerStep neutral" data-step="facts"><span>1</span><div><strong>Produktdaten strukturieren</strong><small>Amazon-Fakten, Varianten und technische Details</small></div></div>
+        <div class="designerStep neutral" data-step="copy"><span>2</span><div><strong>Listing-Entwurf</strong><small>Titel und Beschreibung als Arbeitsentwurf erzeugen</small></div></div>
+        <div class="designerStep neutral" data-step="category"><span>3</span><div><strong>eBay-Kategorie</strong><small>Taxonomy automatisch suchen und beste Kategorie einsetzen</small></div></div>
+        <div class="designerStep neutral" data-step="aspects"><span>4</span><div><strong>Artikelmerkmale</strong><small>Passende Fakten auf eBay-Merkmale abbilden</small></div></div>
+        <div class="designerStep neutral" data-step="review"><span>5</span><div><strong>Readiness</strong><small id="designerReadinessText">Noch nicht ausgeführt</small></div></div>
+      </div>
+      <button id="rerunDesigner" class="btn violet full" type="button">✨ Listing Designer erneut ausführen</button>
+      <div id="designerNote" class="note blueNote">Nach dem Amazon-Import läuft der Designer automatisch. Er erstellt oder veröffentlicht nichts bei eBay.</div>
+    </section>
+
+    <section id="productCard" class="card hidden">
+      <div class="head"><h3>Produkt & Arbeitsentwurf</h3><span class="chip green">Importiert</span></div>
+      <div class="product">
+        <div class="img"><img id="mainImage" alt="Produktbild" /></div>
+        <div>
+          <div class="field"><label>Listing-Titel · Arbeitsentwurf</label><input id="title" maxlength="80" placeholder="Vor Nutzung prüfen" /></div>
+          <div class="grid2"><div class="field"><label>ASIN</label><input id="asin" readonly /></div><div class="field"><label>Marke</label><input id="brand" /></div></div>
+          <div class="grid2"><div class="field"><label>Abteilung</label><input id="department" placeholder="automatisch / manuell" /></div><div class="field"><label>Stil</label><input id="style" placeholder="automatisch / manuell" /></div></div>
+          <div class="grid2"><div class="field"><label>Material</label><input id="material" placeholder="automatisch / manuell" /></div><div class="field"><label>Modell / MPN</label><input id="modelNumber" placeholder="automatisch / manuell" /></div></div>
+          <div class="field">
+            <label>eBay Kategorie</label>
+            <div class="grid2 categorySearchRow">
+              <input id="ebayCategoryQuery" placeholder="Produkttitel oder Suchbegriff" />
+              <button id="searchEbayCategory" class="btn soft" type="button">🔎 Suchen</button>
+            </div>
+            <select id="ebayCategorySuggestions" disabled><option value="">Noch nicht gesucht</option></select>
+            <div class="grid2 categoryApplyRow">
+              <input id="ebayCategoryId" inputmode="numeric" placeholder="Kategorie-ID · auch manuell möglich" />
+              <button id="applyEbayCategory" class="btn blue" type="button" disabled>Übernehmen</button>
+            </div>
+            <div id="ebayCategoryNote" class="note blueNote">Titel laden und „Suchen“ drücken. Die Auswahl nutzt die eBay Taxonomy für EBAY_DE.</div>
+          </div>
+          <div class="field"><label>eBay Zustand</label><select id="ebayCondition"><option value="">Bitte prüfen</option><option value="NEW">Neu</option><option value="NEW_OTHER">Neu: Sonstige</option><option value="NEW_WITH_DEFECTS">Neu mit Fehlern</option><option value="LIKE_NEW">Wie neu</option><option value="USED_EXCELLENT">Gebraucht: Hervorragend</option><option value="USED_VERY_GOOD">Gebraucht: Sehr gut</option><option value="USED_GOOD">Gebraucht: Gut</option><option value="USED_ACCEPTABLE">Gebraucht: Akzeptabel</option></select></div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="field"><label>Listing-Beschreibung · Arbeitsentwurf</label><textarea id="description" placeholder="Vor Nutzung prüfen"></textarea></div>
+      <div class="field"><label>eBay Bild-URLs · nur geprüfte/nutzbare Bilder</label><textarea id="ebayImageUrls" placeholder="https://.../bild1.jpg&#10;https://.../bild2.jpg"></textarea></div>
+      <div class="field"><label>eBay Artikelmerkmale · JSON</label><textarea id="ebayItemSpecifics" placeholder='{"Marke":["Beispiel"],"Farbe":["Schwarz"]}'></textarea></div>
+      <details class="designerDetails">
+        <summary>Hersteller / GPSR-Daten</summary>
+        <p class="small">Der Designer übernimmt nur tatsächlich auf der Amazon-Seite erkannte Herstellerdaten. Fehlende Anschriften oder EU-Verantwortliche werden nicht geraten.</p>
+        <div class="grid2"><div class="field"><label>Hersteller</label><input id="manufacturerName" placeholder="nicht automatisch raten" /></div><div class="field"><label>Land (ISO)</label><input id="manufacturerCountry" maxlength="2" placeholder="DE" /></div></div>
+        <div class="field"><label>Herstelleranschrift</label><input id="manufacturerAddress" placeholder="Straße / Hausnummer" /></div>
+        <div class="grid2"><div class="field"><label>Ort</label><input id="manufacturerCity" /></div><div class="field"><label>PLZ</label><input id="manufacturerPostalCode" /></div></div>
+        <div class="field"><label>Hersteller Kontakt</label><input id="manufacturerContact" placeholder="E-Mail, Telefon oder URL" /></div>
+        <div class="divider"></div>
+        <div class="grid2"><div class="field"><label>EU-Verantwortlicher</label><input id="responsibleName" placeholder="falls erforderlich" /></div><div class="field"><label>Land (ISO)</label><input id="responsibleCountry" maxlength="2" placeholder="DE" /></div></div>
+        <div class="field"><label>Anschrift EU-Verantwortlicher</label><input id="responsibleAddress" /></div>
+        <div class="grid2"><div class="field"><label>Ort</label><input id="responsibleCity" /></div><div class="field"><label>PLZ</label><input id="responsiblePostalCode" /></div></div>
+        <div class="field"><label>Kontakt EU-Verantwortlicher</label><input id="responsibleContact" placeholder="E-Mail, Telefon oder URL" /></div>
+      </details>
+      <div class="note goldNote">Amazon-Texte und -Bilder sind Quelldaten. Prüfe Nutzungsrechte und Inhalte vor einer eBay-Verwendung. Amazon-Bilder und die Amazon-Quell-URL werden nicht automatisch an den eBay-Entwurf übertragen. Nur Bild-URLs, die du hier bewusst einträgst, werden gesendet.</div>
+      <label class="confirmRow"><input id="contentRightsConfirmed" type="checkbox" /> <span>Ich habe die Listing-Inhalte geprüft und verwende nur Inhalte, die ich nutzen darf.</span></label>
+      <label class="confirmRow"><input id="fulfillmentModelConfirmed" type="checkbox" /> <span>Für eine direkte Veröffentlichung: Beschaffung und Versandmodell sind geprüft; kein unzulässiger Retail-Direktversand vom Marktplatz-Händler an den eBay-Käufer.</span></label>
+      <div class="field"><label>Amazon Quelldaten · nur Recherche</label><textarea id="rawData" readonly></textarea></div>
+    </section>
+
+    <section id="priceCard" class="card hidden">
+      <div class="head"><h3>Preis & Marge</h3><span id="marginChip" class="chip">Berechnen</span></div>
+      <div class="grid2"><div class="field"><label>Einkaufspreis €</label><input id="buyPrice" type="number" step="0.01" /></div><div class="field"><label>eBay Verkaufspreis €</label><input id="sellPrice" type="number" step="0.01" placeholder="manuell" /></div></div>
+      <div class="prices"><div class="price"><span>Gebühren geschätzt</span><strong id="fees">0,00 €</strong></div><div id="profitBox" class="price profit"><span>Gewinn geschätzt</span><strong id="profit">0,00 €</strong></div></div>
+      <p class="small">Faustschätzung: 12 % + 0,35 €. Tatsächliche eBay-Gebühren können je Kategorie, Konto und Angebot abweichen.</p>
+    </section>
+  </section>
+
+  <nav class="bottom">
+    <button id="sendCompanyOsBottom" class="btn green">Company JSON</button>
+    <button id="prepareDraft" class="btn gold">eBay-Entwurf</button>
+  </nav>
+
+  <section id="settings" class="settings">
+    <div class="sheet">
+      <div class="sheetTop"><h2>⚙ Einstellungen</h2><button id="closeSettings" class="close">×</button></div>
+
+      <div class="settingsIntro">
+        <strong>Amazon Standalone Importer</strong>
+        <span>Dieses Tool ist eigenständig. Company OS und eBay sind nur optionale Schnittstellen.</span>
+      </div>
+
+
+      <div id="designerSettingsBlock" class="settingBlock integrationSetting">
+        <div class="integrationSettingHead">
+          <div><h3>Listing Designer</h3><p>Automatische Vorbereitung direkt im Amazon Standalone Importer</p></div>
+          <span class="chip violet">AUTO</span>
+        </div>
+        <label class="confirmRow"><input id="enableAutoDesigner" type="checkbox" /> <span>Nach jedem Amazon-Import automatisch Listing-Entwurf → eBay-Kategorie → Pflichtmerkmale durchlaufen.</span></label>
+        <div class="note blueNote">Der automatische Lauf ist nur Vorbereitung. Bilder, Rechte, Zustand, Verkaufspreis, Versandmodell und die tatsächliche Veröffentlichung bleiben bewusst unter deiner Kontrolle.</div>
+      </div>
+
+      <div id="companySettingsBlock" class="settingBlock integrationSetting">
+        <div class="integrationSettingHead">
+          <div><h3>Company OS</h3><p>Optionales Ziel für ungeprüfte Produktdaten</p></div>
+          <span id="companySettingsChip" class="chip">Nicht geprüft</span>
+        </div>
+        <div class="field"><label>Company OS</label><input id="companyOsUrl" readonly /></div>
+        <div class="field"><label>Company OS Import API</label><input id="companyImportUrl" readonly /></div>
+        <div class="btnrow"><button id="checkCompanyStatusSettings" class="btn soft">Prüfen</button><button id="openCompanyOsSettings" class="btn soft">Öffnen</button></div>
+        <div class="note blueNote">Aus Sicherheitsgründen wird im Amazon Standalone Importer kein Company-OS-Sync-Code gespeichert. Der Button erstellt nur einen lokalen JSON-Payload zum Kopieren.</div>
+      </div>
+
+      <div id="ebaySettingsBlock" class="settingBlock integrationSetting">
+        <div class="integrationSettingHead">
+          <div><h3>eBay</h3><p>Verbindung und Entwurfsbereitschaft getrennt prüfen</p></div>
+          <span id="ebaySettingsChip" class="chip">Nicht geprüft</span>
+        </div>
+        <div class="field"><label>Verbindungsseite</label><input id="ebayConnectUrl" readonly /></div>
+        <div class="field"><label>Entwurfsstatus API</label><input id="ebayStatusUrl" readonly /></div>
+        <div class="policyGrid">
+          <div class="field">
+            <label>Versandrichtlinie</label>
+            <select id="ebayFulfillmentPolicy"><option value="">Erst Status prüfen</option></select>
+          </div>
+          <div class="field">
+            <label>Zahlungsrichtlinie</label>
+            <select id="ebayPaymentPolicy"><option value="">Erst Status prüfen</option></select>
+          </div>
+          <div class="field">
+            <label>Rücknahmerichtlinie</label>
+            <select id="ebayReturnPolicy"><option value="">Erst Status prüfen</option></select>
+          </div>
+          <div class="field">
+            <label>eBay Inventory-Standort</label>
+            <select id="ebayMerchantLocation"><option value="">Erst Status prüfen</option></select>
+          </div>
+        </div>
+        <div id="ebayPolicyNote" class="note blueNote">Die Auswahl wird nur im Amazon Standalone Importer gespeichert. Sie ändert keine eBay-Richtlinie.</div>
+        <label class="confirmRow dangerConfirm"><input id="enableDirectPublish" type="checkbox" /> <span>Sofort-Veröffentlichung im Amazon Standalone Importer erlauben. Vor jedem Livegang wird nochmals ausdrücklich bestätigt.</span></label>
+        <div class="btnrow"><button id="connectEbaySettings" class="btn blue">Verbinden</button><button id="checkEbayStatusSettings" class="btn soft">Status prüfen</button></div>
+        <button id="copyEbayUrls" class="btn soft full">eBay URLs kopieren</button>
+        <div class="note">Die Extension speichert keine Refresh Tokens, Access Tokens, Client Secrets oder API-Secrets.</div>
+      </div>
+
+      <div class="settingBlock integrationSetting">
+        <div class="integrationSettingHead">
+          <div><h3>Seller Tool Backend</h3><p>Nur technische eBay-Serverroute</p></div>
+          <span class="chip violet">Backend</span>
+        </div>
+        <div class="field"><label>Backend URL</label><input id="sellerToolUrl" readonly /></div>
+        <button id="openSellerTool" class="btn soft full">Backend öffnen</button>
+        <div class="note blueNote">Der Amazon Importer bleibt Standalone. eBay-Aktionen laufen über deine bereits angemeldete Seller-Tool-Browsersitzung; kein Seller-Zugriffstoken wird in der Extension gespeichert.</div>
+      </div>
+
+      <div class="settingBlock">
+        <h3>Export & Diagnose</h3>
+        <button id="copyIntegrationUrls" class="btn soft full">Alle Integrations-URLs kopieren</button>
+        <button id="copyJson" class="btn soft full">JSON Payload kopieren</button>
+        <button id="showPayload" class="btn soft full">Payload anzeigen</button>
+        <div class="field"><label>Payload Vorschau</label><textarea id="payloadPreview" readonly></textarea></div>
+        <div class="note">Amazon-Rohdaten bleiben Quelldaten. eBay Tokens bleiben ausschließlich serverseitig.</div>
+      </div>
+    </div>
+  </section>
+</main>
+<script src="popup.js"></script>
+</body>
+</html>
