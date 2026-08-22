@@ -47,3 +47,4 @@ jobs:
           node scripts/workflow-price-regression.test.mjs
           node scripts/batch-collector-regression.test.mjs
           node scripts/batch-image-regression.test.mjs
+          node scripts/tab-toast-regression.test.mjs
