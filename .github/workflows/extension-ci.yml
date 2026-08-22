@@ -40,8 +40,10 @@ jobs:
           node --check toast-notifications.js
           node --check batch-status-bridge.js
           node --check batch-collector.js
+          node --check batch-image-fix.js
 
       - name: Run regression tests
         run: |
           node scripts/workflow-price-regression.test.mjs
           node scripts/batch-collector-regression.test.mjs
+          node scripts/batch-image-regression.test.mjs

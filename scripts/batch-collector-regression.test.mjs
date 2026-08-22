@@ -28,10 +28,13 @@ test('collector persists prepared queue and never bulk publishes', () => {
   assert.doesNotMatch(collector, /createSellerHubDraftFromButton/);
 });
 
-test('popup loads toast suppression before collector and manifest version is bumped', () => {
+test('popup loads toast suppression before collector and batch-capable version is retained', () => {
   const toastIndex = loader.indexOf('toast-notifications.js');
   const bridgeIndex = loader.indexOf('batch-status-bridge.js');
   const collectorIndex = loader.indexOf('batch-collector.js');
   assert.ok(toastIndex >= 0 && bridgeIndex > toastIndex && collectorIndex > bridgeIndex);
-  assert.equal(manifest.version, '1.2.14');
+
+  const [major, minor, patch] = String(manifest.version).split('.').map(Number);
+  const atLeastBatchVersion = major > 1 || (major === 1 && (minor > 2 || (minor === 2 && patch >= 14)));
+  assert.ok(atLeastBatchVersion, `expected extension version >= 1.2.14, got ${manifest.version}`);
 });
