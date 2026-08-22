@@ -10,6 +10,8 @@ const requiredFiles = [
   "popup-fixed.html",
   "popup-fixed.js",
   "image-fix.js",
+  "category-fix.js",
+  "workflow-fix.js",
   "style.css",
   "README.md",
 ];
@@ -52,7 +54,7 @@ if (manifest) {
   else ok(`default_popup vorhanden: ${popup}`);
 }
 
-for (const jsFile of ["popup.js", "popup-fixed.js", "image-fix.js"]) {
+for (const jsFile of ["popup.js", "popup-fixed.js", "image-fix.js", "category-fix.js", "workflow-fix.js"]) {
   const syntax = spawnSync(process.execPath, ["--check", path.join(root, jsFile)], {
     encoding: "utf8",
   });
@@ -72,6 +74,9 @@ const popupFixedJs = fs.existsSync(path.join(root, "popup-fixed.js"))
 const imageFixJs = fs.existsSync(path.join(root, "image-fix.js"))
   ? fs.readFileSync(path.join(root, "image-fix.js"), "utf8")
   : "";
+const workflowFixJs = fs.existsSync(path.join(root, "workflow-fix.js"))
+  ? fs.readFileSync(path.join(root, "workflow-fix.js"), "utf8")
+  : "";
 
 const referencedIds = new Set();
 for (const match of popupJs.matchAll(/getElementById\(\s*["']([^"']+)["']\s*\)/g)) {
@@ -88,10 +93,13 @@ const missingIds = [...referencedIds].filter((id) => !htmlIds.has(id));
 if (missingIds.length) fail(`In popup.js referenzierte IDs fehlen in popup.html: ${missingIds.join(", ")}`);
 else ok(`DOM-ID-Check bestanden (${referencedIds.size} statische ID-Referenzen)`);
 
-if (!popupFixedJs.includes('<script src="image-fix.js"></script>')) {
-  fail("Popup-Bootstrap injiziert image-fix.js nicht.");
-} else {
-  ok("Popup-Bootstrap lädt image-fix.js nach popup.js");
+for (const [script, label] of [
+  ["image-fix.js", "Bild-Handoff"],
+  ["category-fix.js", "Kategorie-Handoff"],
+  ["workflow-fix.js", "Preis-/Draft-Handoff"],
+]) {
+  if (!popupFixedJs.includes(`<script src="${script}"></script>`)) fail(`Popup-Bootstrap lädt ${label} nicht.`);
+  else ok(`Popup-Bootstrap lädt ${script}`);
 }
 
 const imageFixContracts = [
@@ -106,7 +114,32 @@ for (const [needle, label] of imageFixContracts) {
   else ok(label);
 }
 
-const codeFiles = ["manifest.json", "popup.html", "popup.js", "popup-fixed.html", "popup-fixed.js", "image-fix.js", "style.css"];
+const workflowContracts = [
+  ["#corePrice_feature_div .priceToPay .a-offscreen", "aktueller Amazon-Preis wird priorisiert"],
+  ["meta[itemprop=\"price\"]", "strukturierter Amazon-Preis wird berücksichtigt"],
+  ["application/ld+json", "JSON-LD-Preis wird berücksichtigt"],
+  ["buyPrice", "Einkaufspreisfeld wird befüllt"],
+  ["suggestedSellPrice", "eBay-Verkaufspreis erhält einen prüfbaren Vorschlag"],
+  ["conditionEnum", "Artikelzustand wird bei eindeutiger Neuware erkannt"],
+  ["Pflichtmerkmale", "fehlende eBay-Pflichtmerkmale werden vollständig gemeldet"],
+  ["details?.blockers", "Server-Blocker werden sichtbar gemacht"],
+];
+for (const [needle, label] of workflowContracts) {
+  if (!workflowFixJs.includes(needle)) fail(`Workflow-Fix-Vertrag fehlt: ${label}`);
+  else ok(label);
+}
+
+const codeFiles = [
+  "manifest.json",
+  "popup.html",
+  "popup.js",
+  "popup-fixed.html",
+  "popup-fixed.js",
+  "image-fix.js",
+  "category-fix.js",
+  "workflow-fix.js",
+  "style.css",
+];
 const secretPatterns = [
   { name: "OpenAI/Projekt-Key", re: /\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b/g },
   { name: "GitHub Token", re: /\bgh[pousr]_[A-Za-z0-9]{20,}\b/g },
