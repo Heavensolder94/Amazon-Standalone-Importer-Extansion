@@ -32,3 +32,4 @@ jobs:
           node --check popup-fixed.js
           node --check image-fix.js
           node --check category-fix.js
+          node --check workflow-fix.js
