@@ -1,0 +1,53 @@
+name: Release Extension
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Validate and publish ZIP
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Validate extension
+        run: node scripts/validate-extension.mjs
+
+      - name: Verify tag matches manifest version
+        shell: bash
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          MANIFEST_VERSION="$(node -p "require('./manifest.json').version")"
+          if [ "$TAG_VERSION" != "$MANIFEST_VERSION" ]; then
+            echo "Tag-Version $TAG_VERSION stimmt nicht mit manifest.json $MANIFEST_VERSION überein."
+            exit 1
+          fi
+
+      - name: Build release ZIP
+        shell: bash
+        run: |
+          ZIP="elyon-amazon-standalone-importer-${GITHUB_REF_NAME}.zip"
+          zip -r "$ZIP" manifest.json popup.html index.html popup.js style.css README.md
+          echo "RELEASE_ZIP=$ZIP" >> "$GITHUB_ENV"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release create "$GITHUB_REF_NAME" "$RELEASE_ZIP" \
+            --title "Elyon Amazon Standalone Importer $GITHUB_REF_NAME" \
+            --generate-notes
