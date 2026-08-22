@@ -8,10 +8,10 @@
 
   const batchAwareSetStatus = function batchAwareSetStatus(text, cls = '') {
     const statusClass = String(cls || '').toLowerCase();
-    const isBatchSummary = /massenimport|sammelmodus/i.test(String(text || ''));
-    if (globalThis.__elyonBatchPreparing === true && statusClass.includes('ok') && !isBatchSummary) {
-      // Toast-System reagiert nur auf ok/error. Während eines Batchlaufs bleiben
-      // einzelne DeepSeek-Erfolge deshalb im Status sichtbar, ohne 20 Toasts zu stapeln.
+    if (globalThis.__elyonBatchPreparing === true && statusClass.includes('ok')) {
+      // Toast-System reagiert auf ok/error. Während eines Batchlaufs bleiben
+      // einzelne DeepSeek- und Designer-Erfolge im Status sichtbar, ohne Toast-Spam.
+      // Der Batch selbst zeigt am Ende genau eine eigene Zusammenfassung an.
       return currentSetStatus(text, 'warn');
     }
     return currentSetStatus(text, cls);
