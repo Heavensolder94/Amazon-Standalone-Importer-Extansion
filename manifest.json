@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Elyon Amazon Importer",
+  "version": "1.1.9",
+  "description": "Eigenständiger Amazon Standalone Importer mit automatischem Listing Designer, eBay-Kategoriesuche, registrierten Drafts und optionaler bestätigter Veröffentlichung.",
+  "action": {
+    "default_title": "Elyon Amazon Importer",
+    "default_popup": "popup.html"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://www.amazon.de/*",
+    "https://www.amazon.com/*",
+    "https://www.amazon.co.uk/*",
+    "https://elyonsellertool.vercel.app/*",
+    "https://elyon-company-os.vercel.app/*",
+    "https://elyon-seller-tool.vercel.app/*"
+  ]
+}
