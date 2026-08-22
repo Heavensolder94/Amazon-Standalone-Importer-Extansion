@@ -12,6 +12,7 @@ const requiredFiles = [
   "image-fix.js",
   "category-fix.js",
   "workflow-fix.js",
+  "direct-ebay-bridge.js",
   "style.css",
   "README.md",
 ];
@@ -52,9 +53,15 @@ if (manifest) {
   const popup = String(manifest?.action?.default_popup || "");
   if (!popup || !fs.existsSync(path.join(root, popup))) fail(`default_popup fehlt oder existiert nicht: ${popup || "<leer>"}`);
   else ok(`default_popup vorhanden: ${popup}`);
+
+  if (!Array.isArray(manifest.permissions) || !manifest.permissions.includes("cookies")) {
+    fail("Direkte Seller-Session-Brücke benötigt die Chrome-Permission cookies.");
+  } else {
+    ok("Chrome-Permission cookies vorhanden");
+  }
 }
 
-for (const jsFile of ["popup.js", "popup-fixed.js", "image-fix.js", "category-fix.js", "workflow-fix.js"]) {
+for (const jsFile of ["popup.js", "popup-fixed.js", "image-fix.js", "category-fix.js", "workflow-fix.js", "direct-ebay-bridge.js"]) {
   const syntax = spawnSync(process.execPath, ["--check", path.join(root, jsFile)], {
     encoding: "utf8",
   });
@@ -77,6 +84,9 @@ const imageFixJs = fs.existsSync(path.join(root, "image-fix.js"))
 const workflowFixJs = fs.existsSync(path.join(root, "workflow-fix.js"))
   ? fs.readFileSync(path.join(root, "workflow-fix.js"), "utf8")
   : "";
+const directEbayBridgeJs = fs.existsSync(path.join(root, "direct-ebay-bridge.js"))
+  ? fs.readFileSync(path.join(root, "direct-ebay-bridge.js"), "utf8")
+  : "";
 
 const referencedIds = new Set();
 for (const match of popupJs.matchAll(/getElementById\(\s*["']([^"']+)["']\s*\)/g)) {
@@ -97,6 +107,7 @@ for (const [script, label] of [
   ["image-fix.js", "Bild-Handoff"],
   ["category-fix.js", "Kategorie-Handoff"],
   ["workflow-fix.js", "Preis-/Draft-Handoff"],
+  ["direct-ebay-bridge.js", "Direkte Seller-Session-Brücke"],
 ]) {
   if (!popupFixedJs.includes(`<script src="${script}"></script>`)) fail(`Popup-Bootstrap lädt ${label} nicht.`);
   else ok(`Popup-Bootstrap lädt ${script}`);
@@ -129,6 +140,19 @@ for (const [needle, label] of workflowContracts) {
   else ok(label);
 }
 
+const directBridgeContracts = [
+  ["chrome.cookies.get", "signierte Seller-Session wird per Cookie API gelesen"],
+  ["X-Elyon-Seller-Session", "signierte Seller-Session wird als Bridge-Header übertragen"],
+  ["/api/ebay/extension-action", "dedizierter Seller-Backend-Endpunkt wird verwendet"],
+  ["sellerLifecycleAction = directSellerLifecycleAction", "Lifecycle-Aktionen werden direkt umgeleitet"],
+];
+for (const [needle, label] of directBridgeContracts) {
+  if (!directEbayBridgeJs.includes(needle)) fail(`Direct-Bridge-Vertrag fehlt: ${label}`);
+  else ok(label);
+}
+if (directEbayBridgeJs.includes("chrome.tabs.create")) fail("Direkte eBay-Brücke darf keinen Seller-Tool-Tab öffnen.");
+else ok("Direkte eBay-Brücke öffnet keinen Seller-Tool-Tab");
+
 const codeFiles = [
   "manifest.json",
   "popup.html",
@@ -138,6 +162,7 @@ const codeFiles = [
   "image-fix.js",
   "category-fix.js",
   "workflow-fix.js",
+  "direct-ebay-bridge.js",
   "style.css",
 ];
 const secretPatterns = [
