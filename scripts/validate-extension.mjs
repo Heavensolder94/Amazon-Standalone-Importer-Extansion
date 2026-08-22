@@ -7,6 +7,9 @@ const requiredFiles = [
   "manifest.json",
   "popup.html",
   "popup.js",
+  "popup-fixed.html",
+  "popup-fixed.js",
+  "image-fix.js",
   "style.css",
   "README.md",
 ];
@@ -49,17 +52,25 @@ if (manifest) {
   else ok(`default_popup vorhanden: ${popup}`);
 }
 
-const syntax = spawnSync(process.execPath, ["--check", path.join(root, "popup.js")], {
-  encoding: "utf8",
-});
-if (syntax.status !== 0) fail(`popup.js Syntaxfehler:\n${syntax.stderr || syntax.stdout}`);
-else ok("popup.js Syntax gültig");
+for (const jsFile of ["popup.js", "popup-fixed.js", "image-fix.js"]) {
+  const syntax = spawnSync(process.execPath, ["--check", path.join(root, jsFile)], {
+    encoding: "utf8",
+  });
+  if (syntax.status !== 0) fail(`${jsFile} Syntaxfehler:\n${syntax.stderr || syntax.stdout}`);
+  else ok(`${jsFile} Syntax gültig`);
+}
 
 const popupHtml = fs.existsSync(path.join(root, "popup.html"))
   ? fs.readFileSync(path.join(root, "popup.html"), "utf8")
   : "";
 const popupJs = fs.existsSync(path.join(root, "popup.js"))
   ? fs.readFileSync(path.join(root, "popup.js"), "utf8")
+  : "";
+const popupFixedJs = fs.existsSync(path.join(root, "popup-fixed.js"))
+  ? fs.readFileSync(path.join(root, "popup-fixed.js"), "utf8")
+  : "";
+const imageFixJs = fs.existsSync(path.join(root, "image-fix.js"))
+  ? fs.readFileSync(path.join(root, "image-fix.js"), "utf8")
   : "";
 
 const referencedIds = new Set();
@@ -77,7 +88,25 @@ const missingIds = [...referencedIds].filter((id) => !htmlIds.has(id));
 if (missingIds.length) fail(`In popup.js referenzierte IDs fehlen in popup.html: ${missingIds.join(", ")}`);
 else ok(`DOM-ID-Check bestanden (${referencedIds.size} statische ID-Referenzen)`);
 
-const codeFiles = ["manifest.json", "popup.html", "popup.js", "style.css"];
+if (!popupFixedJs.includes('<script src="image-fix.js"></script>')) {
+  fail("Popup-Bootstrap injiziert image-fix.js nicht.");
+} else {
+  ok("Popup-Bootstrap lädt image-fix.js nach popup.js");
+}
+
+const imageFixContracts = [
+  ["data-old-hires", "Amazon data-old-hires wird berücksichtigt"],
+  ["data-a-dynamic-image", "Amazon data-a-dynamic-image wird berücksichtigt"],
+  ["og:image", "OpenGraph-Bild wird berücksichtigt"],
+  ["ebayImageUrls", "eBay-Bildfeld wird befüllt"],
+  ["Nutzungsrechte", "Nutzungsrechte-Hinweis bleibt Teil des Fixes"],
+];
+for (const [needle, label] of imageFixContracts) {
+  if (!imageFixJs.includes(needle)) fail(`Image-Fix-Vertrag fehlt: ${label}`);
+  else ok(label);
+}
+
+const codeFiles = ["manifest.json", "popup.html", "popup.js", "popup-fixed.html", "popup-fixed.js", "image-fix.js", "style.css"];
 const secretPatterns = [
   { name: "OpenAI/Projekt-Key", re: /\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b/g },
   { name: "GitHub Token", re: /\bgh[pousr]_[A-Za-z0-9]{20,}\b/g },
@@ -104,4 +133,4 @@ if (process.exitCode) {
   process.exit(process.exitCode);
 }
 
-console.log("\n🎉 Extension-Validierung erfolgreich.");
+console.log("\n🎉 Extension-Validierung erfolgreich.\n");
