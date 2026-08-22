@@ -24,6 +24,19 @@
     );
   }
 
+  function ebayErrorDetails(details) {
+    const errors = Array.isArray(details?.errors) ? details.errors : [];
+    return errors.slice(0, 3).map((entry) => {
+      const base = String(entry?.longMessage || entry?.message || '').trim();
+      const errorId = entry?.errorId ? `Fehler ${entry.errorId}` : '';
+      const parameters = (Array.isArray(entry?.parameters) ? entry.parameters : [])
+        .map((parameter) => String(parameter?.value || '').trim())
+        .filter(Boolean)
+        .slice(0, 6);
+      return [errorId, base, parameters.length ? `(${parameters.join(', ')})` : ''].filter(Boolean).join(' · ');
+    }).filter(Boolean).join(' | ');
+  }
+
   async function directSellerLifecycleAction(action, requestData) {
     const session = await readSellerSession();
     const response = await fetch(SELLER_EXTENSION_ACTION_URL, {
@@ -40,6 +53,16 @@
     if (response.status === 403 && (body?.error === 'seller_access_denied' || body?.error === 'seller_extension_session_missing')) {
       body.message = body.message || 'Seller-Tool-Sitzung ist abgelaufen. Bitte einmal im Seller Tool neu anmelden.';
     }
+
+    if (!response.ok) {
+      const detail = ebayErrorDetails(body?.details);
+      if (detail) {
+        body.message = `${body.message || 'eBay-Entwurf konnte nicht erstellt werden.'}\n${detail}`;
+      } else if (!body.message) {
+        body.message = `eBay-Entwurf konnte nicht erstellt werden (HTTP ${response.status}).`;
+      }
+    }
+
     return { ok: response.ok, status: response.status, body };
   }
 
