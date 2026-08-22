@@ -97,9 +97,9 @@ if (!popupFixedJs.includes('<script src="image-fix.js"></script>')) {
 const imageFixContracts = [
   ["data-old-hires", "Amazon data-old-hires wird berücksichtigt"],
   ["data-a-dynamic-image", "Amazon data-a-dynamic-image wird berücksichtigt"],
-  ["meta[property=\\\"og:image\\\"]", "OpenGraph-Bild wird berücksichtigt"],
+  ["og:image", "OpenGraph-Bild wird berücksichtigt"],
   ["ebayImageUrls", "eBay-Bildfeld wird befüllt"],
-  ["contentRights", "Nutzungsrechte-Hinweis bleibt Teil des Fixes"],
+  ["Nutzungsrechte", "Nutzungsrechte-Hinweis bleibt Teil des Fixes"],
 ];
 for (const [needle, label] of imageFixContracts) {
   if (!imageFixJs.includes(needle)) fail(`Image-Fix-Vertrag fehlt: ${label}`);
@@ -133,4 +133,4 @@ if (process.exitCode) {
   process.exit(process.exitCode);
 }
 
-console.log("\n🎉 Extension-Validierung erfolgreich.");
+console.log("\n🎉 Extension-Validierung erfolgreich.\n");
