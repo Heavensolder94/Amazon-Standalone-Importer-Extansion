@@ -26,3 +26,9 @@ jobs:
 
       - name: Validate extension
         run: node scripts/validate-extension.mjs
+
+      - name: Validate hotfix scripts
+        run: |
+          node --check popup-fixed.js
+          node --check image-fix.js
+          node --check category-fix.js
