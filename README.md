@@ -54,11 +54,60 @@ Unter **Einstellungen → Listing Designer** ist der automatische Lauf standardm
 - Bilder, Rechte, Artikelzustand, Verkaufspreis und Versandmodell bleiben bewusst manuelle Freigabepunkte.
 - Der eBay-Server prüft beim Draft/Publish zusätzlich Kategorie-, Listing- und regulatorische Anforderungen.
 
-## Installation
+## Lokale Installation über Git
 
-1. ZIP entpacken.
-2. `chrome://extensions` öffnen.
-3. Entwicklermodus aktivieren.
-4. **Entpackte Erweiterung laden** wählen.
-5. Ordner `elyon-amazon-ebay-extension` auswählen.
-6. Bei einem Update die Erweiterung anschließend über **Neu laden** aktualisieren.
+Empfohlen ist ein lokaler Clone dieses Repositories. Dadurch sind für Updates keine neuen ZIP-Ordner nötig.
+
+```bash
+git clone https://github.com/Heavensolder94/Amazon-Standalone-Importer-Extansion.git
+cd Amazon-Standalone-Importer-Extansion
+```
+
+Danach in Chrome:
+
+1. `chrome://extensions` öffnen.
+2. Entwicklermodus aktivieren.
+3. **Entpackte Erweiterung laden** wählen.
+4. Den geklonten Repository-Ordner auswählen.
+
+Für spätere Updates genügt im Repository:
+
+```bash
+git pull
+```
+
+Anschließend in `chrome://extensions` bei der Erweiterung **Neu laden** drücken.
+
+Alternativ kann eine veröffentlichte Release-ZIP heruntergeladen und entpackt werden.
+
+## Entwicklung und CI
+
+Neue Funktionen sollen auf einem eigenen Branch entwickelt und über einen Pull Request nach `main` übernommen werden.
+
+Die GitHub Action **Extension CI** prüft bei Pull Requests und Änderungen auf `main` automatisch:
+
+- notwendige Extension-Dateien,
+- gültiges Manifest V3,
+- Versionsformat,
+- JavaScript-Syntax,
+- statische DOM-ID-Referenzen,
+- bekannte Secret-Muster in den ausgelieferten Extension-Dateien.
+
+Die gleiche Validierung kann lokal ausgeführt werden:
+
+```bash
+node scripts/validate-extension.mjs
+```
+
+## Releases
+
+Ein Tag im Format `vX.Y.Z` löst automatisch den Release-Workflow aus. Die Tag-Version muss exakt der Version aus `manifest.json` entsprechen.
+
+Beispiel:
+
+```bash
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+Danach validiert GitHub die Extension, erzeugt automatisch eine ZIP-Datei und veröffentlicht sie als GitHub Release. Ein fehlgeschlagener Validierungsschritt verhindert das Release.
