@@ -38,6 +38,10 @@ jobs:
           node --check direct-ebay-bridge.js
           node --check deepseek-listing-ai.js
           node --check toast-notifications.js
+          node --check batch-status-bridge.js
+          node --check batch-collector.js
 
-      - name: Run price regression test
-        run: node scripts/workflow-price-regression.test.mjs
+      - name: Run regression tests
+        run: |
+          node scripts/workflow-price-regression.test.mjs
+          node scripts/batch-collector-regression.test.mjs
