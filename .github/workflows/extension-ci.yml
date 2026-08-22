@@ -33,7 +33,10 @@ jobs:
           node --check image-fix.js
           node --check category-fix.js
           node --check workflow-fix.js
+          node --check description-design-fix.js
+          node --check item-specifics-autofill.js
           node --check direct-ebay-bridge.js
+          node --check deepseek-listing-ai.js
 
       - name: Run price regression test
         run: node scripts/workflow-price-regression.test.mjs
