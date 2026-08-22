@@ -66,13 +66,16 @@ const referencedIds = new Set();
 for (const match of popupJs.matchAll(/getElementById\(\s*["']([^"']+)["']\s*\)/g)) {
   referencedIds.add(match[1]);
 }
+for (const match of popupJs.matchAll(/\$\(\s*["']([^"']+)["']\s*\)/g)) {
+  referencedIds.add(match[1]);
+}
 const htmlIds = new Set();
 for (const match of popupHtml.matchAll(/\sid=["']([^"']+)["']/g)) {
   htmlIds.add(match[1]);
 }
 const missingIds = [...referencedIds].filter((id) => !htmlIds.has(id));
 if (missingIds.length) fail(`In popup.js referenzierte IDs fehlen in popup.html: ${missingIds.join(", ")}`);
-else ok(`DOM-ID-Check bestanden (${referencedIds.size} statische getElementById-Referenzen)`);
+else ok(`DOM-ID-Check bestanden (${referencedIds.size} statische ID-Referenzen)`);
 
 const codeFiles = ["manifest.json", "popup.html", "popup.js", "style.css"];
 const secretPatterns = [
