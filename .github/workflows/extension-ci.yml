@@ -33,3 +33,6 @@ jobs:
           node --check image-fix.js
           node --check category-fix.js
           node --check workflow-fix.js
+
+      - name: Run price regression test
+        run: node scripts/workflow-price-regression.test.mjs
