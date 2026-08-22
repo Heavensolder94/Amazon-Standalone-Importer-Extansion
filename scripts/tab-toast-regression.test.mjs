@@ -17,5 +17,5 @@ test('browser-tab toast keeps slide-in behavior and safe restricted-page fallbac
   assert.match(toast, /translateX\(calc\(100% \+ 34px\)\)/);
   assert.match(toast, /\^https\?:\\\/\\\//);
   assert.match(toast, /Der normale Status in der Extension bleibt trotzdem erhalten/);
-  assert.equal(manifest.version, '1.2.17');
+  assert.match(String(manifest.description || ''), /Slide-in-Statusmeldungen im aktiven Chrome-Tab/i);
 });
