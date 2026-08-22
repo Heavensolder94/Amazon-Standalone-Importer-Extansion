@@ -71,20 +71,53 @@
     return overlap;
   }
 
-  getCurrentProduct = async function getValidatedAmazonProduct() {
-    if (globalThis.chrome?.tabs) {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      const url = String(tab?.url || '');
-      const hasProductPath = /\/(?:dp|gp\/product|gp\/aw\/d)\/[A-Z0-9]{10}(?:[/?]|$)/i.test(url) || /[?&]asin=[A-Z0-9]{10}(?:&|$)/i.test(url);
-      if (!hasProductPath) {
-        throw new Error('Bitte eine echte Amazon-Produktdetailseite öffnen. Such-, Start- und „Weiter einkaufen“-Seiten werden nicht mehr als Produkt importiert.');
-      }
-    }
+  async function readAmazonPageIdentity() {
+    if (!globalThis.chrome?.tabs || !globalThis.chrome?.scripting) return {};
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id || !/amazon\./i.test(String(tab.url || ''))) return {};
 
+    const [{ result } = {}] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => {
+        const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+        const canonical = document.querySelector('link[rel="canonical"]')?.href || '';
+        const current = location.href;
+        const productTitle = clean(document.querySelector('#productTitle')?.textContent || '');
+        const directAsin = [
+          document.querySelector('#ASIN')?.value,
+          document.querySelector('input[name="ASIN"]')?.value,
+          document.querySelector('[data-detail-page-asin]')?.getAttribute('data-detail-page-asin'),
+          document.querySelector('#dp[data-asin]')?.getAttribute('data-asin'),
+          document.querySelector('#ppd[data-asin]')?.getAttribute('data-asin')
+        ].map(clean).find((value) => /^[A-Z0-9]{10}$/i.test(value)) || '';
+
+        const extractFromUrl = (value) => {
+          const text = String(value || '');
+          const pathMatch = text.match(/\/(?:dp|gp\/product|gp\/aw\/d|product)\/([A-Z0-9]{10})(?:[/?#]|$)/i);
+          if (pathMatch?.[1]) return pathMatch[1];
+          const queryMatch = text.match(/[?&](?:asin|ASIN)=([A-Z0-9]{10})(?:[&#]|$)/i);
+          return queryMatch?.[1] || '';
+        };
+
+        return {
+          url: current,
+          canonical,
+          title: productTitle,
+          asin: directAsin || extractFromUrl(canonical) || extractFromUrl(current)
+        };
+      }
+    });
+    return result && typeof result === 'object' ? result : {};
+  }
+
+  getCurrentProduct = async function getValidatedAmazonProduct() {
+    const identity = await readAmazonPageIdentity().catch(() => ({}));
     const product = await originalGetCurrentProduct();
     if (!product || typeof product !== 'object') throw new Error('Amazon-Produktdaten konnten nicht gelesen werden.');
 
-    product.title = cleanAmazonTitle(product.title);
+    if (!product.asin && identity.asin) product.asin = String(identity.asin).toUpperCase();
+    product.title = cleanAmazonTitle(identity.title || product.title);
+
     const validAsin = /^[A-Z0-9]{10}$/i.test(String(product.asin || '').trim());
     const genericTitle = !product.title || /\bweiter einkaufen\b/i.test(product.title) || /^amazon\./i.test(product.title);
 
