@@ -215,7 +215,7 @@
   function openSellerHubDrafts(event) {
     event?.preventDefault?.();
     event?.stopImmediatePropagation?.();
-    if (globalThis.chrome?.tabs?.create) chrome.tabs.create({ url: SELLER_HUB_DRAFTS_URL });
+    if (typeof openTab === 'function') openTab(SELLER_HUB_DRAFTS_URL);
     else window.open(SELLER_HUB_DRAFTS_URL, '_blank', 'noopener');
   }
 
