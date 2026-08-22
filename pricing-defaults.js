@@ -13,4 +13,15 @@
   for (const [key, value] of Object.entries(defaults)) {
     if (localStorage.getItem(key) === null) localStorage.setItem(key, value);
   }
+
+  const updatePriceCardCopy = () => {
+    const note = [...document.querySelectorAll('#priceCard p.small')]
+      .find((element) => /Faustschätzung:/i.test(element.textContent || ''));
+    if (note) {
+      note.textContent = 'Gebühren, Gewinn und Marge werden mit deinen Preisautomatik-Einstellungen berechnet. Tatsächliche eBay-Gebühren können je Kategorie, Konto und Angebot abweichen.';
+    }
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', updatePriceCardCopy, { once: true });
+  else updatePriceCardCopy();
 })();
