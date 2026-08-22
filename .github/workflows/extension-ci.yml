@@ -37,6 +37,7 @@ jobs:
           node --check item-specifics-autofill.js
           node --check direct-ebay-bridge.js
           node --check deepseek-listing-ai.js
+          node --check toast-notifications.js
 
       - name: Run price regression test
         run: node scripts/workflow-price-regression.test.mjs
