@@ -36,6 +36,7 @@ jobs:
           node --check description-design-fix.js
           node --check item-specifics-autofill.js
           node --check direct-ebay-bridge.js
+          node --check pricing-automation.js
           node --check deepseek-listing-ai.js
           node --check toast-notifications.js
           node --check batch-status-bridge.js
@@ -45,6 +46,7 @@ jobs:
       - name: Run regression tests
         run: |
           node scripts/workflow-price-regression.test.mjs
+          node scripts/pricing-automation-regression.test.mjs
           node scripts/batch-collector-regression.test.mjs
           node scripts/batch-image-regression.test.mjs
           node scripts/tab-toast-regression.test.mjs
