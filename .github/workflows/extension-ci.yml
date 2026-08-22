@@ -36,6 +36,7 @@ jobs:
           node --check description-design-fix.js
           node --check item-specifics-autofill.js
           node --check direct-ebay-bridge.js
+          node --check pricing-defaults.js
           node --check pricing-automation.js
           node --check deepseek-listing-ai.js
           node --check toast-notifications.js
