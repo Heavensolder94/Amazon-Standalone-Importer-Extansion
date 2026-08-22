@@ -4,7 +4,8 @@
   const SELLER_SESSION_COOKIE = 'elyon_seller_session';
   const SELLER_SESSION_HEADER = 'X-Elyon-Seller-Session';
   const SELLER_EXTENSION_ACTION_URL = 'https://elyonsellertool.vercel.app/api/ebay/extension-action';
-  const OFFER_LINKS_STORAGE_KEY = 'elyon_amazon_importer_ebay_offer_links_v1';
+  const SELLER_HUB_DRAFTS_URL = 'https://www.ebay.de/sh/lst/drafts';
+  const DRAFT_TASKS_STORAGE_KEY = 'elyon_amazon_importer_seller_hub_draft_tasks_v1';
   const SELLER_SESSION_ORIGINS = [
     'https://elyonsellertool.vercel.app/',
     'https://elyon-seller-tool.vercel.app/'
@@ -21,7 +22,7 @@
     }
 
     throw new Error(
-      'Keine gültige Seller-Tool-Sitzung gefunden. Öffne das Seller Tool einmal, melde dich an und versuche den eBay-Vorentwurf danach erneut. Der Importer öffnet das Seller Tool nicht mehr automatisch.'
+      'Keine gültige Seller-Tool-Sitzung gefunden. Öffne das Seller Tool einmal, melde dich an und versuche den eBay-Entwurf danach erneut.'
     );
   }
 
@@ -39,64 +40,48 @@
   }
 
   function sourceKey(payload) {
-    return String(payload?.sourceProductId || payload?.sku || '').trim();
+    return String(payload?.sourceProductId || payload?.sku || payload?.title || '').trim();
   }
 
-  function readOfferLinks() {
+  function readDraftTasks() {
     try {
-      const value = JSON.parse(localStorage.getItem(OFFER_LINKS_STORAGE_KEY) || '{}');
+      const value = JSON.parse(localStorage.getItem(DRAFT_TASKS_STORAGE_KEY) || '{}');
       return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
     } catch {
       return {};
     }
   }
 
-  function rememberOfferLink(payload, body) {
+  function writeDraftTasks(tasks) {
+    try { localStorage.setItem(DRAFT_TASKS_STORAGE_KEY, JSON.stringify(tasks || {})); } catch {}
+  }
+
+  function rememberDraftTask(payload, body) {
     const key = sourceKey(payload);
-    const offerId = String(body?.offerId || '').trim();
-    if (!key || !offerId) return;
-    const links = readOfferLinks();
-    links[key] = {
-      offerId,
+    const taskId = String(body?.taskId || '').trim();
+    if (!key || !taskId) return;
+    const tasks = readDraftTasks();
+    tasks[key] = {
+      taskId,
       sku: String(body?.sku || payload?.sku || '').trim(),
+      feedType: String(body?.feedType || '').trim(),
       savedAt: Date.now()
     };
-    try { localStorage.setItem(OFFER_LINKS_STORAGE_KEY, JSON.stringify(links)); } catch {}
+    writeDraftTasks(tasks);
   }
 
-  function forgetOfferLink(payload) {
+  function forgetDraftTask(payload) {
     const key = sourceKey(payload);
     if (!key) return;
-    const links = readOfferLinks();
-    if (!(key in links)) return;
-    delete links[key];
-    try { localStorage.setItem(OFFER_LINKS_STORAGE_KEY, JSON.stringify(links)); } catch {}
+    const tasks = readDraftTasks();
+    if (!(key in tasks)) return;
+    delete tasks[key];
+    writeDraftTasks(tasks);
   }
 
-  function restoreOfferLink(payload) {
-    const source = payload && typeof payload === 'object' ? { ...payload } : {};
-    if (String(source.offerId || '').trim()) return source;
-    const key = sourceKey(source);
-    const saved = key ? readOfferLinks()[key] : null;
-    if (!saved?.offerId) return source;
-    return {
-      ...source,
-      offerId: String(saved.offerId).trim(),
-      sku: String(source.sku || saved.sku || '').trim()
-    };
-  }
-
-  function duplicateOfferId(details) {
-    const errors = Array.isArray(details?.errors) ? details.errors : [];
-    for (const entry of errors) {
-      const duplicate = Number(entry?.errorId) === 25002 || /offer entity already exists/i.test(String(entry?.message || entry?.longMessage || ''));
-      if (!duplicate) continue;
-      const parameter = (Array.isArray(entry?.parameters) ? entry.parameters : [])
-        .find((item) => String(item?.name || '').toLowerCase() === 'offerid');
-      const offerId = String(parameter?.value || '').trim();
-      if (offerId) return offerId;
-    }
-    return '';
+  function savedDraftTask(payload) {
+    const key = sourceKey(payload);
+    return key ? readDraftTasks()[key] || null : null;
   }
 
   async function requestSellerAction(session, action, payload) {
@@ -107,86 +92,200 @@
         [SELLER_SESSION_HEADER]: session
       },
       cache: 'no-store',
-      body: JSON.stringify({ action, payload })
+      body: JSON.stringify({ action, payload: payload || {} })
     });
     const body = await response.json().catch(() => ({}));
+
+    if (response.status === 403 && (body?.error === 'seller_access_denied' || body?.error === 'seller_extension_session_missing')) {
+      body.message = body.message || 'Seller-Tool-Sitzung ist abgelaufen. Bitte einmal im Seller Tool neu anmelden.';
+    }
+    if (!response.ok) {
+      const detail = ebayErrorDetails(body?.details);
+      if (detail) body.message = `${body.message || 'eBay-Anfrage fehlgeschlagen.'}\n${detail}`;
+      else if (!body.message) body.message = `eBay-Anfrage fehlgeschlagen (HTTP ${response.status}).`;
+    }
+
     return { ok: response.ok, status: response.status, body };
+  }
+
+  async function directSellerLifecycleAction(action, requestData) {
+    const session = await readSellerSession();
+    return requestSellerAction(session, action, requestData || {});
+  }
+
+  function statusTextFromTask(body) {
+    const status = String(body?.status || '').toUpperCase();
+    if (body?.draftVisible === true || (status === 'COMPLETED' && Number(body?.failureCount || 0) === 0)) {
+      return 'eBay-Entwurf erstellt ✅\nDu findest ihn jetzt im Verkäufer-Cockpit unter Angebote → Entwürfe.';
+    }
+    if (status === 'COMPLETED_WITH_ERROR' || Number(body?.failureCount || 0) > 0) {
+      return `eBay hat den Entwurf mit Fehlern verarbeitet. Erfolgreich: ${Number(body?.successCount || 0)} · Fehler: ${Number(body?.failureCount || 0)}.`;
+    }
+    return `eBay-Entwurf wird verarbeitet …${body?.taskId ? `\nTask-ID: ${body.taskId}` : ''}\nDas kann bei eBay einige Minuten dauern.`;
+  }
+
+  async function checkSavedTask(session, payload, saved) {
+    if (!saved?.taskId) return null;
+    const response = await requestSellerAction(session, 'draft-status', { taskId: saved.taskId });
+    if (!response.ok) {
+      if (response.status === 404 || response.body?.error === 'ebay_draft_task_id_required') forgetDraftTask(payload);
+      return null;
+    }
+    const body = response.body || {};
+    const complete = body.complete === true;
+    const successCount = Number(body.successCount || 0);
+    const failureCount = Number(body.failureCount || 0);
+    if (complete && failureCount > 0 && successCount === 0) {
+      forgetDraftTask(payload);
+      return { retryAllowed: true, body };
+    }
+    return { retryAllowed: false, body };
+  }
+
+  async function pollDraftTask(session, payload, taskId) {
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const response = await requestSellerAction(session, 'draft-status', { taskId });
+      if (!response.ok) return null;
+      const body = response.body || {};
+      if (body.complete === true) {
+        if (body.draftVisible !== true && Number(body.failureCount || 0) > 0 && Number(body.successCount || 0) === 0) {
+          forgetDraftTask(payload);
+        }
+        return body;
+      }
+    }
+    return null;
+  }
+
+  async function createSellerHubDraftFromButton(event) {
+    event?.preventDefault?.();
+    event?.stopImmediatePropagation?.();
+
+    let built;
+    try {
+      built = typeof safeDraftPayload === 'function' ? safeDraftPayload() : { data: null, error: 'Draft-Payload ist nicht verfügbar.' };
+    } catch (error) {
+      setStatus(error?.message || 'eBay-Daten konnten nicht gelesen werden.', 'err');
+      return;
+    }
+    if (built?.error || !built?.data) {
+      setStatus(built?.error || 'eBay-Daten konnten nicht gelesen werden.', 'err');
+      return;
+    }
+
+    const payload = { ...built.data };
+    delete payload.offerId;
+    const categoryId = String(payload.categoryId || '').trim();
+    if (!/^\d{2,10}$/.test(categoryId)) {
+      setStatus('Für den eBay-Entwurf fehlt noch eine gültige eBay-Kategorie-ID.', 'err');
+      return;
+    }
+
+    setStatus('eBay-Entwurf wird an Seller Hub übergeben …', 'warn');
+    try {
+      const session = await readSellerSession();
+      const saved = savedDraftTask(payload);
+      if (saved?.taskId) {
+        const existing = await checkSavedTask(session, payload, saved);
+        if (existing && !existing.retryAllowed) {
+          setStatus(statusTextFromTask(existing.body), existing.body?.draftVisible ? 'ok' : 'warn');
+          return;
+        }
+      }
+
+      const response = await requestSellerAction(session, 'create-draft', payload);
+      const result = response.body || {};
+      if (!response.ok || result.ok === false || !result.taskId) {
+        setStatus(result.message || result.error || 'eBay-Entwurf konnte nicht erstellt werden.', 'err');
+        return;
+      }
+
+      rememberDraftTask(payload, result);
+      setStatus(statusTextFromTask(result), 'warn');
+      const completed = await pollDraftTask(session, payload, result.taskId);
+      if (completed) {
+        setStatus(statusTextFromTask(completed), completed.draftVisible ? 'ok' : (Number(completed.failureCount || 0) > 0 ? 'err' : 'warn'));
+      }
+    } catch (error) {
+      setStatus(`eBay-Entwurf konnte nicht erstellt werden. ${error?.message || ''}`.trim(), 'err');
+    }
+  }
+
+  function openSellerHubDrafts(event) {
+    event?.preventDefault?.();
+    event?.stopImmediatePropagation?.();
+    if (typeof openTab === 'function') openTab(SELLER_HUB_DRAFTS_URL);
+    else window.open(SELLER_HUB_DRAFTS_URL, '_blank', 'noopener');
   }
 
   function clarifyDraftUi() {
     const mainButton = document.getElementById('prepareDraftMain');
     const mainStrong = mainButton?.querySelector('strong');
     const mainSub = mainButton?.querySelector('span');
-    if (mainStrong) mainStrong.textContent = 'eBay-Vorentwurf';
-    if (mainSub) mainSub.textContent = 'Inventory-API Offer · nicht Seller Hub → Entwürfe';
+    if (mainStrong) mainStrong.textContent = 'eBay-Entwurf';
+    if (mainSub) mainSub.textContent = 'Direkt in Seller Hub → Entwürfe';
 
     ['prepareDraftEbay', 'prepareDraft'].forEach((id) => {
       const button = document.getElementById(id);
       if (!button) return;
-      button.textContent = 'eBay-Vorentwurf';
-      button.title = 'Unveröffentlichter Inventory-API Offer. Er erscheint nicht unter Seller Hub → Entwürfe.';
+      button.disabled = false;
+      button.textContent = 'eBay-Entwurf';
+      button.title = 'Erstellt einen echten Entwurf im eBay Verkäufer-Cockpit unter Angebote → Entwürfe.';
     });
+    if (mainButton) {
+      mainButton.disabled = false;
+      mainButton.title = 'Erstellt einen echten Entwurf im eBay Verkäufer-Cockpit unter Angebote → Entwürfe.';
+    }
 
     const ebayButton = document.getElementById('prepareDraftEbay');
     const card = ebayButton?.closest('.card');
     const note = card?.querySelector('p.small');
     if (note) {
-      note.textContent = 'Elyon speichert hier einen unveröffentlichten eBay Inventory-API Offer. Dieser ist technisch bei eBay vorhanden, erscheint aber nicht unter Seller Hub → Entwürfe. Nach deiner Prüfung kann Elyon ihn über „Jetzt veröffentlichen“ live stellen.';
+      note.textContent = 'Der Button erstellt über eBays Seller-Hub-Feed einen echten eBay-Entwurf. Nach der Verarbeitung erscheint er unter Angebote → Entwürfe und kann dort fertig geprüft und veröffentlicht werden.';
+    }
+
+    const publishButton = document.getElementById('publishEbay');
+    if (publishButton) {
+      publishButton.disabled = false;
+      publishButton.textContent = 'Entwürfe öffnen';
+      publishButton.title = 'Seller Hub → Angebote → Entwürfe öffnen';
     }
   }
 
-  async function directSellerLifecycleAction(action, requestData) {
-    const session = await readSellerSession();
-    const payload = restoreOfferLink(requestData || {});
-    const result = await requestSellerAction(session, action, payload);
-    const body = result.body || {};
-
-    if (result.status === 403 && (body?.error === 'seller_access_denied' || body?.error === 'seller_extension_session_missing')) {
-      body.message = body.message || 'Seller-Tool-Sitzung ist abgelaufen. Bitte einmal im Seller Tool neu anmelden.';
-    }
-
-    if (!result.ok && (action === 'create-draft' || action === 'draft')) {
-      const existingOfferId = duplicateOfferId(body?.details);
-      if (existingOfferId) {
-        return {
-          ok: true,
-          status: 200,
-          body: {
-            ok: true,
-            draftCreated: true,
-            published: false,
-            reusedExisting: true,
-            offerId: existingOfferId,
-            sku: String(payload?.sku || '').trim(),
-            message: 'Vorhandener unveröffentlichter eBay Inventory-Offer wurde wiedererkannt.'
-          }
-        };
+  function installDraftHandlers() {
+    ['prepareDraftMain', 'prepareDraft', 'prepareDraftEbay'].forEach((id) => {
+      const button = document.getElementById(id);
+      if (button && button.dataset.sellerHubDraftHandler !== '1') {
+        button.dataset.sellerHubDraftHandler = '1';
+        button.addEventListener('click', createSellerHubDraftFromButton, true);
       }
+    });
+    const publishButton = document.getElementById('publishEbay');
+    if (publishButton && publishButton.dataset.sellerHubDraftHandler !== '1') {
+      publishButton.dataset.sellerHubDraftHandler = '1';
+      publishButton.addEventListener('click', openSellerHubDrafts, true);
     }
+  }
 
-    if (result.ok && body?.ok !== false && (action === 'create-draft' || action === 'draft')) {
-      rememberOfferLink(payload, body);
-    }
-    if (result.ok && body?.published === true && action === 'publish') {
-      forgetOfferLink(payload);
-    }
+  try {
+    setDraftButtonsEnabled = function sellerHubDraftButtons() {
+      clarifyDraftUi();
+    };
+    setPublishButtonsEnabled = function sellerHubDraftOpenButton() {
+      clarifyDraftUi();
+    };
+  } catch {}
 
-    if (!result.ok) {
-      const detail = ebayErrorDetails(body?.details);
-      if (detail) {
-        body.message = `${body.message || 'eBay-Vorentwurf konnte nicht erstellt werden.'}\n${detail}`;
-      } else if (!body.message) {
-        body.message = `eBay-Vorentwurf konnte nicht erstellt werden (HTTP ${result.status}).`;
-      }
-    }
-
-    return { ok: result.ok, status: result.status, body };
+  function initSellerHubDraftFlow() {
+    clarifyDraftUi();
+    installDraftHandlers();
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', clarifyDraftUi, { once: true });
+    document.addEventListener('DOMContentLoaded', initSellerHubDraftFlow, { once: true });
   } else {
-    clarifyDraftUi();
+    initSellerHubDraftFlow();
   }
 
   sellerLifecycleAction = directSellerLifecycleAction;
