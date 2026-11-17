@@ -145,6 +145,36 @@ function parsePrice(value) {
   return Number(normalized) || 0;
 }
 
+function normalizedAmazonAsin(value) {
+  const raw = clean(value).toUpperCase();
+  return /^[A-Z0-9]{10}$/.test(raw) ? raw : '';
+}
+
+function amazonAsinFromUrl(value) {
+  try {
+    const url = new URL(String(value || ''));
+    if (!/(^|\.)amazon\.(?:de|com|co\.uk|fr|it|es|nl|pl|se|be)$/i.test(url.hostname)) return '';
+    const path = url.pathname.match(/\/(?:dp|gp\/product|gp\/aw\/d)\/([A-Z0-9]{10})(?=\/|$)/i);
+    return normalizedAmazonAsin(path?.[1] || url.searchParams.get('asin') || '');
+  } catch {
+    return '';
+  }
+}
+
+function observedAmazonPurchaseReference(product, inputAsin = '') {
+  if (!product || typeof product !== 'object') return null;
+  const productAsin = normalizedAmazonAsin(product.asin);
+  const urlAsin = amazonAsinFromUrl(product.url);
+  const fieldAsin = normalizedAmazonAsin(inputAsin);
+  const identities = [productAsin, urlAsin, fieldAsin].filter(Boolean);
+  // Do not attach an Amazon price if the input and the loaded page refer to different products.
+  if (!identities.length || new Set(identities).size !== 1 || (!productAsin && !urlAsin)) return null;
+  const observedPrice = parsePrice(product.price);
+  return Number.isFinite(observedPrice) && observedPrice > 0 && observedPrice <= 100000
+    ? Math.round(observedPrice * 100) / 100
+    : null;
+}
+
 function normalizedKey(value) {
   return clean(value).toLocaleLowerCase('de-DE').replace(/[.:]/g, '');
 }
@@ -701,14 +731,14 @@ function draftPayload() {
   const policies = selectedEbayPolicies();
   const asin = clean($('asin').value);
   const linkedDraft = state.ebayDraft && state.ebayDraft.asin === asin ? state.ebayDraft : null;
-  // Only the price recognized on this exact Amazon product page, not a manually edited EK field.
-  const amazonReferencePrice = state.product?.asin === asin
-    ? parsePrice(state.product?.price) : 0;
+  // The Amazon page's retail VK is our potential purchase-price reference.
+  // A blank/mixed-case ASIN field must not silently drop the observed price.
+  const amazonReferencePrice = observedAmazonPurchaseReference(state.product, asin);
   return {
     source: 'elyon-amazon-standalone-importer',
     sourceProductId: asin ? `amazon:${asin}` : '',
-    amazonReferencePrice: Number.isFinite(amazonReferencePrice) && amazonReferencePrice > 0 ? amazonReferencePrice : null,
-    amazonReferenceCapturedAt: amazonReferencePrice > 0 ? new Date().toISOString() : '',
+    amazonReferencePrice,
+    amazonReferenceCapturedAt: amazonReferencePrice !== null ? new Date().toISOString() : '',
     title: clean($('title').value),
     description: $('description').value || '',
     price: Number($('sellPrice').value) || 0,

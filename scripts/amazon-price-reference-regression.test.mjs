@@ -10,10 +10,9 @@ test("observed Amazon retail VK is separate from eBay price in draft payload",()
   const start=popup.indexOf("function draftPayload()");
   const end=popup.indexOf("function companyOsPayload()",start);
   const segment=popup.slice(start,end);
-  assert.match(segment,/const amazonReferencePrice = state\.product\?\.asin === asin/);
-  assert.match(segment,/parsePrice\(state\.product\?\.price\)/);
-  assert.match(segment,/amazonReferencePrice: Number\.isFinite/);
-  assert.match(segment,/amazonReferenceCapturedAt: amazonReferencePrice > 0/);
+  assert.match(segment,/observedAmazonPurchaseReference\(state\.product, asin\)/);
+  assert.match(segment,/amazonReferencePrice,/);
+  assert.match(segment,/amazonReferenceCapturedAt: amazonReferencePrice !== null/);
   assert.match(segment,/price: Number\(\$\('sellPrice'\)\.value\)/);
   assert.doesNotMatch(segment,/price: amazonReferencePrice/);
 });
@@ -30,6 +29,6 @@ test("previous eBay Feed task status and history recovery resubmit only observat
 });
 
 test("extension version is bumped without adding automatic publishing",()=>{
-  assert.equal(manifest.version,"1.2.23");
+  assert.equal(manifest.version,"1.2.24");
   assert.doesNotMatch(bridge,/syncAmazonPriceReference\([^)]*\)\s*;\s*publish/);
 });
