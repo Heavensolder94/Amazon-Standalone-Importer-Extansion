@@ -43,6 +43,50 @@
     return String(payload?.sourceProductId || payload?.sku || payload?.title || '').trim();
   }
 
+  function recoveryAsin(value) {
+    const candidate = String(value || '').trim().toUpperCase();
+    const fromSku = candidate.match(/^AMZ-([A-Z0-9]{10})$/);
+    if (fromSku) return fromSku[1];
+    const fromSource = candidate.match(/^AMAZON:([A-Z0-9]{10})$/);
+    if (fromSource) return fromSource[1];
+    return /^[A-Z0-9]{10}$/.test(candidate) ? candidate : '';
+  }
+
+  function recoveryAsinFromUrl(value) {
+    try {
+      const url = new URL(String(value || '').trim());
+      // Never infer an Amazon product identity from an unrelated website's URL.
+      if (!/(^|\.)amazon\.(?:de|com|co\.uk|fr|it|es|nl|pl|se|be)$/i.test(url.hostname)) return '';
+      const pathMatch = url.pathname.match(/\/(?:dp|gp\/product|gp\/aw\/d)\/([A-Z0-9]{10})(?=\/|$)/i);
+      const asinValue = pathMatch?.[1] || url.searchParams.get('asin') || url.searchParams.get('ASIN') || '';
+      return recoveryAsin(asinValue);
+    } catch {
+      return '';
+    }
+  }
+
+  function resolveRecoverySku(payload) {
+    // Use only IDs associated with the product currently loaded in this extension.
+    // A title, a random search result or an eBay offer number is never an identity.
+    const product = typeof state === 'object' && state ? state.product : null;
+    const asinField = typeof document !== 'undefined' ? document.getElementById('asin')?.value : '';
+    const known = [
+      recoveryAsin(payload?.sku),
+      recoveryAsin(payload?.sourceProductId),
+      recoveryAsin(asinField),
+      recoveryAsin(product?.asin),
+      recoveryAsinFromUrl(product?.url)
+    ].filter(Boolean);
+    const distinct = [...new Set(known)];
+    if (distinct.length > 1) {
+      return { sku: '', error: 'Die Amazon-ASIN ist widersprüchlich (z. B. anderer Artikel oder Variante). Bitte die richtige Amazon-Produktseite erneut einlesen. Kein eBay-Entwurf wurde verändert.' };
+    }
+    if (!distinct.length) {
+      return { sku: '', error: 'Keine gültige Amazon-ASIN gefunden. Bitte die richtige Amazon-Produktseite erneut einlesen oder das ASIN-Feld mit der 10-stelligen Kennung ausfüllen. Es wurde kein Entwurf erstellt.' };
+    }
+    return { sku: 'AMZ-' + distinct[0], error: '' };
+  }
+
   function readDraftTasks() {
     try {
       const value = JSON.parse(localStorage.getItem(DRAFT_TASKS_STORAGE_KEY) || '{}');
@@ -267,8 +311,22 @@
       setStatus('Produktdaten für den Abgleich fehlen. Bitte zuerst denselben Amazon-Artikel erneut einlesen.', 'warn');
       return;
     }
-    const key = sourceKey(payload);
-    const saved = key ? readDraftTasks()[key] : null;
+    const identity = resolveRecoverySku(payload);
+    if (identity.error) {
+      setStatus(identity.error, 'warn');
+      return;
+    }
+    const originalSource = recoveryAsin(payload.sourceProductId);
+    const recoveryPayload = {
+      ...payload,
+      sku: identity.sku,
+      sourceProductId: originalSource === identity.sku.slice(4)
+        ? payload.sourceProductId
+        : 'amazon:' + identity.sku.slice(4)
+    };
+    const key = sourceKey(recoveryPayload);
+    const savedTasks = readDraftTasks();
+    const saved = (key && savedTasks[key]) || (sourceKey(payload) && savedTasks[sourceKey(payload)]) || null;
     if (!saved?.taskId) {
       // The original Chrome extension may have been replaced and lost localStorage.
       // Search only the authenticated eBay FX_DRAFT task history by exact SKU.
@@ -276,14 +334,14 @@
       setStatus('Keine lokale Task-ID gefunden. Suche vorhandenen eBay-Feed anhand der SKU …', 'warn');
       try {
         const session = await readSellerSession();
-        const response = await requestSellerAction(session, 'recover-draft', feedTaskLookup(payload, '', payload.sku));
+        const response = await requestSellerAction(session, 'recover-draft', feedTaskLookup(recoveryPayload, '', identity.sku));
         if (!response.ok || response.body?.ok !== true) {
           setStatus(response.body?.message || 'Kein passender Feed-Task gefunden. Es wurde kein neuer Entwurf erstellt.', 'warn');
           return;
         }
         // The normal draft recovery is independent from the optional batch collector.
         // Only the verified eBay task is cached; no new draft or batch update is needed.
-        rememberDraftTask(payload, response.body);
+        rememberDraftTask(recoveryPayload, response.body);
         setStatus(statusTextFromTask(response.body), response.body.registration?.persisted === true ? 'ok' : 'warn');
       } catch (error) {
         setStatus('eBay-Feed-Wiederherstellung fehlgeschlagen: ' + String(error?.message || 'Unbekannter Fehler'), 'err');
@@ -293,7 +351,7 @@
     setStatus('Vorhandenen eBay-Feed-Task prüfen und mit ELYON synchronisieren …', 'warn');
     try {
       const session = await readSellerSession();
-      const result = await checkSavedTask(session, payload, saved);
+      const result = await checkSavedTask(session, recoveryPayload, saved);
       if (!result) {
         setStatus('Der gespeicherte eBay-Task konnte nicht geprüft werden. Kein neuer eBay-Entwurf wurde angelegt.', 'warn');
         return;

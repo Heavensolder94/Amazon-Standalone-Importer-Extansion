@@ -488,7 +488,10 @@ async function getCurrentProduct() {
       const title = txt('#productTitle') || document.title;
       const price = txt('.a-price .a-offscreen') || txt('#priceblock_ourprice') || txt('#priceblock_dealprice');
       const img = attr('#landingImage', 'src') || attr('#imgBlkFront', 'src') || document.querySelector('#altImages img')?.src || '';
-      const asin = (location.pathname.match(/\/dp\/([A-Z0-9]{10})/) || location.href.match(/[?&]asin=([A-Z0-9]{10})/) || [])[1] || '';
+      const rawAsin = String(document.querySelector('input#ASIN')?.value || document.querySelector('input[name="ASIN"]')?.value || '').trim().toUpperCase();
+      const pathAsin = (location.pathname.match(/\/(?:dp|gp\/product|gp\/aw\/d)\/([A-Z0-9]{10})(?=\/|$)/i) || [])[1] || '';
+      const queryAsin = new URL(location.href).searchParams.get('asin') || '';
+      const asin = (/^[A-Z0-9]{10}$/.test(rawAsin) ? rawAsin : pathAsin || queryAsin).toUpperCase();
       const brand = txt('#bylineInfo').replace(/^Marke:\s*/i, '').replace(/^Besuche den .*?Store/i, '').trim();
       const bullets = [...document.querySelectorAll('#feature-bullets li span')]
         .map((e) => cleanText(e.textContent))

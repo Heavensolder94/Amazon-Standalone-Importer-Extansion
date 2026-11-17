@@ -26,8 +26,8 @@ test('Feed draft recovery checks the old eBay task without submitting a duplicat
   const end = bridge.indexOf('function openSellerHubDrafts(', start);
   assert.ok(start > 0 && end > start);
   const recovery = bridge.slice(start, end);
-  assert.match(recovery, /readDraftTasks\(\)\[key\]/);
-  assert.match(recovery, /checkSavedTask\(session, payload, saved\)/);
+  assert.match(recovery, /savedTasks\[key\]/);
+  assert.match(recovery, /checkSavedTask\(session, recoveryPayload, saved\)/);
   assert.doesNotMatch(recovery, /'create-draft'/);
   assert.match(bridge, /feedTaskLookup\(payload, saved\.taskId, saved\.sku\)/);
   assert.match(bridge, /feedTaskLookup\(payload, taskId, sku\)/);
@@ -42,8 +42,8 @@ test('when extension lost local task ID, recovery searches eBay task history by 
   assert.ok(start > 0 && end > start);
   const recovery = bridge.slice(start, end);
   assert.match(recovery, /if \(!saved\?\.taskId\)/);
-  assert.match(recovery, /requestSellerAction\(session, 'recover-draft', feedTaskLookup\(payload, '', payload\.sku\)\)/);
-  assert.match(recovery, /rememberDraftTask\(payload, response\.body\)/);
+  assert.match(recovery, /requestSellerAction\(session, 'recover-draft', feedTaskLookup\(recoveryPayload, '', identity\.sku\)\)/);
+  assert.match(recovery, /rememberDraftTask\(recoveryPayload, response\.body\)/);
   assert.match(recovery, /registration\?\.persisted === true/);
   assert.doesNotMatch(recovery, /requestSellerAction\(session, 'create-draft'/);
 });
