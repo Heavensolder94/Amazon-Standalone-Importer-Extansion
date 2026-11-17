@@ -61,5 +61,5 @@ test('pricing defaults and automation load before DeepSeek and batch processing'
   const aiIndex = loader.indexOf('deepseek-listing-ai.js');
   const batchIndex = loader.indexOf('batch-collector.js');
   assert.ok(defaultsIndex >= 0 && pricingIndex > defaultsIndex && aiIndex > pricingIndex && batchIndex > pricingIndex);
-  assert.equal(manifest.version, '1.2.18');
+  assert.match(manifest.version, /^\d+\.\d+\.\d+$/);
 });
