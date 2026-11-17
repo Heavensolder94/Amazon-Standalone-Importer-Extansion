@@ -209,6 +209,11 @@
     return `eBay-Entwurf wird verarbeitet …${body?.taskId ? `\nTask-ID: ${body.taskId}` : ''}\nDas kann bei eBay einige Minuten dauern.`;
   }
 
+  function draftSyncTone(body) {
+    if (body?.registration?.persisted !== true) return 'warn';
+    return body?.amazonReferenceSync?.state === 'reference_recorded' ? 'ok' : 'warn';
+  }
+
   function feedTaskLookup(payload, taskId, sku) {
     return {
       taskId: String(taskId || '').trim(),
@@ -355,7 +360,7 @@
         // The normal draft recovery is independent from the optional batch collector.
         // Only the verified eBay task is cached; no new draft or batch update is needed.
         rememberDraftTask(recoveryPayload, response.body);
-        setStatus(statusTextFromTask(response.body), response.body.registration?.persisted === true ? 'ok' : 'warn');
+        setStatus(statusTextFromTask(response.body), draftSyncTone(response.body));
       } catch (error) {
         setStatus('eBay-Feed-Wiederherstellung fehlgeschlagen: ' + String(error?.message || 'Unbekannter Fehler'), 'err');
       }
@@ -369,7 +374,7 @@
         setStatus('Der gespeicherte eBay-Task konnte nicht geprüft werden. Kein neuer eBay-Entwurf wurde angelegt.', 'warn');
         return;
       }
-      setStatus(statusTextFromTask(result.body), result.body?.draftVisible && result.body?.registration?.persisted === true ? 'ok' : 'warn');
+      setStatus(statusTextFromTask(result.body), result.body?.draftVisible ? draftSyncTone(result.body) : 'warn');
     } catch (error) {
       setStatus('Abgleich fehlgeschlagen: ' + String(error?.message || 'Unbekannter Fehler'), 'err');
     }
