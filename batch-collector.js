@@ -8,6 +8,7 @@
   const CARD_ID = 'elyonBatchCollectorCard';
   let queue = [];
   let batchRunning = false;
+  let companyImportRunning = false;
   let stopRequested = false;
 
   const clean = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
@@ -34,6 +35,11 @@
       error: clean(item?.error).slice(0, 1000),
       product: safeObject(item?.product),
       snapshot: safeObject(item?.snapshot),
+      companyOsStatus: ['imported', 'error'].includes(item?.companyOsStatus) ? item.companyOsStatus : 'not_imported',
+      companyOsImportId: clean(item?.companyOsImportId).slice(0, 160),
+      companyOsError: clean(item?.companyOsError).slice(0, 500),
+      ebayDraftStatus: ['processing', 'created', 'error'].includes(item?.ebayDraftStatus) ? item.ebayDraftStatus : 'not_submitted',
+      ebayDraftTaskId: clean(item?.ebayDraftTaskId).slice(0, 160),
       updatedAt: Number(item?.updatedAt || Date.now())
     };
   }
@@ -113,6 +119,7 @@
     const chip = document.getElementById('batchCollectorChip');
     const summary = document.getElementById('batchCollectorSummary');
     const prepare = document.getElementById('prepareCollectedBatch');
+    const company = document.getElementById('importCollectedCompany');
     const stop = document.getElementById('stopCollectedBatch');
     const progress = document.getElementById('batchCollectorProgress');
     if (!list || !chip || !summary || !prepare || !stop || !progress) return;
@@ -120,13 +127,16 @@
     const selected = selectedItems().length;
     const ready = queue.filter((item) => item.status === 'ready').length;
     const errors = queue.filter((item) => item.status === 'error').length;
+    const companyImported = queue.filter((item) => item.companyOsStatus === 'imported').length;
+    const ebayDrafts = queue.filter((item) => item.ebayDraftStatus === 'created').length;
     const finished = queue.filter((item) => ['ready', 'error'].includes(item.status)).length;
     chip.textContent = queue.length ? `${queue.length} gesammelt` : 'Leer';
     chip.className = queue.length ? 'chip violet' : 'chip';
     summary.textContent = queue.length
-      ? `${queue.length} gesammelt · ${selected} ausgewählt · ${ready} bereit${errors ? ` · ${errors} Fehler` : ''}. Pro Lauf werden maximal ${MAX_BATCH} Produkte vorbereitet.`
+      ? `${queue.length} gesammelt · ${selected} ausgewählt · ${ready} vorbereitet · ${companyImported} in Company OS · ${ebayDrafts} eBay-Entwürfe bestätigt${errors ? ` · ${errors} Fehler` : ''}. Maximal ${MAX_BATCH} pro Lauf.`
       : 'Noch keine Produkte gesammelt. Öffne eine Amazon-Suche oder Kategorie und starte „Produkte auf Seite sammeln“.';
-    prepare.disabled = batchRunning || selected === 0;
+    prepare.disabled = batchRunning || companyImportRunning || selected === 0;
+    if (company) company.disabled = batchRunning || companyImportRunning || !selectedItems().some((item) => item.status === 'ready');
     stop.disabled = !batchRunning;
     const progressValue = queue.length ? Math.round((finished / queue.length) * 100) : 0;
     progress.style.width = `${batchRunning ? Math.max(4, progressValue) : progressValue}%`;
@@ -148,7 +158,7 @@
       checkbox.type = 'checkbox';
       checkbox.className = 'batchSelect';
       checkbox.checked = item.selected;
-      checkbox.disabled = batchRunning;
+      checkbox.disabled = batchRunning || companyImportRunning;
       checkbox.title = 'Für Batch-Vorbereitung auswählen';
       checkbox.addEventListener('change', () => {
         item.selected = checkbox.checked;
@@ -188,6 +198,19 @@
       stateChip.textContent = statusLabel(item);
       bottom.appendChild(stateChip);
 
+      if (item.companyOsStatus === 'imported' || item.companyOsStatus === 'error') {
+        const companyChip = document.createElement('span');
+        companyChip.className = 'batchState ' + (item.companyOsStatus === 'imported' ? 'ready' : 'error');
+        companyChip.textContent = item.companyOsStatus === 'imported' ? 'Company OS: importiert' : 'Company OS: Fehler';
+        bottom.appendChild(companyChip);
+      }
+      if (item.ebayDraftStatus !== 'not_submitted') {
+        const draftChip = document.createElement('span');
+        draftChip.className = 'batchState ' + (item.ebayDraftStatus === 'created' ? 'ready' : (item.ebayDraftStatus === 'error' ? 'error' : 'running'));
+        draftChip.textContent = item.ebayDraftStatus === 'created' ? 'eBay: Entwurf bestätigt' : (item.ebayDraftStatus === 'error' ? 'eBay: Fehler' : 'eBay: Verarbeitung läuft');
+        bottom.appendChild(draftChip);
+      }
+
       if (item.status === 'ready' && Object.keys(item.snapshot || {}).length) {
         const load = document.createElement('button');
         load.type = 'button';
@@ -220,6 +243,12 @@
       bottom.appendChild(remove);
       body.appendChild(bottom);
 
+      if (item.companyOsError) {
+        const companyError = document.createElement('p');
+        companyError.className = 'batchError';
+        companyError.textContent = 'Company OS: ' + item.companyOsError;
+        body.appendChild(companyError);
+      }
       if (item.error) {
         const error = document.createElement('p');
         error.className = 'batchError';
@@ -261,9 +290,10 @@
     const collect = button('collectAmazonPage', '🔎 Produkte auf Seite sammeln', 'btn violet');
     const selectAll = button('selectAllCollected', 'Alle auswählen', 'btn soft');
     const prepare = button('prepareCollectedBatch', '✨ Auswahl vorbereiten', 'btn gold');
+    const company = button('importCollectedCompany', '☁ Auswahl an Company OS', 'btn green');
     const stop = button('stopCollectedBatch', 'Stoppen', 'btn soft');
     stop.disabled = true;
-    toolbar.append(collect, selectAll, prepare, stop);
+    toolbar.append(collect, selectAll, prepare, company, stop);
 
     const progressWrap = document.createElement('div');
     progressWrap.className = 'batchProgressWrap';
@@ -301,19 +331,20 @@
       renderQueue();
     });
     prepare.addEventListener('click', prepareSelectedBatch);
+    company.addEventListener('click', importSelectedToCompanyOs);
     stop.addEventListener('click', () => {
       stopRequested = true;
       stop.disabled = true;
       stop.textContent = 'Stoppt nach aktuellem Produkt …';
     });
     clearReady.addEventListener('click', () => {
-      if (batchRunning) return;
+      if (batchRunning || companyImportRunning) return;
       queue = queue.filter((item) => item.status !== 'ready');
       saveQueue();
       renderQueue();
     });
     clearAll.addEventListener('click', () => {
-      if (batchRunning) return;
+      if (batchRunning || companyImportRunning) return;
       queue = [];
       saveQueue();
       renderQueue();
@@ -639,7 +670,7 @@
   }
 
   async function prepareSelectedBatch() {
-    if (batchRunning) return;
+    if (batchRunning || companyImportRunning) return;
     if (!globalThis.chrome?.tabs || !globalThis.chrome?.scripting) {
       setStatus('Batch-Vorbereitung ist nur in der installierten Chrome-Erweiterung verfügbar.', 'err');
       return;
@@ -698,6 +729,11 @@
         await sleep(80);
 
         item.snapshot = captureSnapshot();
+        item.companyOsStatus = 'not_imported';
+        item.companyOsImportId = '';
+        item.companyOsError = '';
+        item.ebayDraftStatus = 'not_submitted';
+        item.ebayDraftTaskId = '';
         item.status = 'ready';
         item.error = '';
         item.updatedAt = Date.now();
@@ -736,6 +772,57 @@
       action: { label: 'Ergebnisse ansehen', run: () => document.getElementById(CARD_ID)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
     });
   }
+
+  function markEbayDraft({ asin, status, taskId } = {}) {
+    const item = queue.find((entry) => entry.asin === clean(asin).toUpperCase());
+    if (!item || !['processing', 'created', 'error'].includes(status)) return;
+    item.ebayDraftStatus = status;
+    item.ebayDraftTaskId = clean(taskId).slice(0, 160);
+    item.updatedAt = Date.now();
+    saveQueue();
+    renderQueue();
+  }
+
+  async function importSelectedToCompanyOs() {
+    if (batchRunning || companyImportRunning) return;
+    const items = selectedItems().filter((item) => item.status === 'ready').slice(0, MAX_BATCH);
+    if (!items.length) {
+      setStatus('Zuerst vorbereitete Produkte auswählen. Sammeln allein ist noch kein Import.', 'warn');
+      return;
+    }
+    if (typeof globalThis.elyonCompanyOsImportPreparedBatch !== 'function') {
+      setStatus('Company-OS-Importmodul fehlt. Bitte Erweiterung neu laden.', 'err');
+      return;
+    }
+    companyImportRunning = true;
+    renderQueue();
+    let successes = 0;
+    let failures = 0;
+    try {
+      await globalThis.elyonCompanyOsImportPreparedBatch(items, (outcome) => {
+        const item = queue.find((entry) => entry.asin === outcome.asin);
+        if (!item) return;
+        item.companyOsStatus = outcome.ok ? 'imported' : 'error';
+        item.companyOsImportId = outcome.ok ? outcome.importId : '';
+        item.companyOsError = outcome.ok ? '' : clean(outcome.error);
+        item.updatedAt = Date.now();
+        if (outcome.ok) successes += 1;
+        else failures += 1;
+        saveQueue();
+        renderQueue();
+        setStatus('Company OS: ' + (successes + failures) + '/' + items.length + ' abgeschlossen (' + successes + ' bestätigt, ' + failures + ' Fehler).', failures ? 'warn' : 'ok');
+      });
+      setStatus('Company-OS-Import abgeschlossen: ' + successes + ' von ' + items.length + ' im Nova-Eingang bestätigt' + (failures ? ' · ' + failures + ' Fehler' : '') + '. Kein eBay-Angebot veröffentlicht.', failures ? 'warn' : 'ok');
+    } catch (error) {
+      setStatus('Company-OS-Batchimport nicht gestartet: ' + clean(error.message), 'err');
+      document.getElementById('companySyncCode')?.focus();
+    } finally {
+      companyImportRunning = false;
+      renderQueue();
+    }
+  }
+
+  globalThis.elyonBatchMarkEbayDraft = markEbayDraft;
 
   function init() {
     queue = readQueue();
