@@ -89,6 +89,14 @@ test('prepared products are imported by HTTPS POST with session-only sync code, 
   assert.equal(Object.keys(sessions).length, 1);
 });
 
+test('import button handles missing product without network call or unhandled rejection', async () => {
+  const { ctx, calls } = sandbox();
+  ctx.companyOsPayload = () => ({ product: { title: '', sourceUrl: '' } });
+  const result = await ctx.elyonCompanyOsImportCurrent();
+  assert.equal(result, null);
+  assert.equal(calls.length, 0);
+});
+
 test('batch rejects missing workspace code before any network import', async () => {
   const { ctx, calls } = sandbox({ code: '' });
   await assert.rejects(() => ctx.elyonCompanyOsImportPreparedBatch([prepared]), /Sync-Code/);
