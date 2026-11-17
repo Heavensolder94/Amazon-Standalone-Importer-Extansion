@@ -51,3 +51,4 @@ jobs:
           node scripts/batch-collector-regression.test.mjs
           node scripts/batch-image-regression.test.mjs
           node scripts/tab-toast-regression.test.mjs
+          node scripts/amazon-price-reference-regression.test.mjs
