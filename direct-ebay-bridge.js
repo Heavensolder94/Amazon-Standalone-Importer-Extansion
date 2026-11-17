@@ -134,7 +134,12 @@
       const sync = body?.registration?.persisted === true
         ? '\nIm ELYON Seller Tool als Feed-Entwurf registriert (Bestand im Seller Hub separat prüfen).'
         : '\nELYON-Synchronisierung nicht bestätigt. Bitte „Vorhandenen Entwurf abgleichen“ verwenden.';
-      return 'eBay-Feed erfolgreich verarbeitet ✅\nDu findest den Entwurf unter Angebote → Entwürfe.' + sync;
+      const reference = body?.amazonReferenceSync?.state === 'reference_recorded'
+        ? '\nAmazon-EK-Referenz in Company OS ergänzt (nicht als bestätigter EK).'
+        : body?.amazonReferenceSync?.state === 'awaiting_review'
+          ? '\nAmazon-EK-Referenz für spätere Produktprüfung vorgemerkt.'
+          : '';
+      return 'eBay-Feed erfolgreich verarbeitet ✅\nDu findest den Entwurf unter Angebote → Entwürfe.' + sync + reference;
     }
     if (body?.complete === true && Number(body?.failureCount || 0) === 0) {
       return 'eBay-Feed verarbeitet, aber Sichtbarkeit noch nicht bestätigt. Bitte Seller Hub prüfen.';
@@ -154,6 +159,8 @@
       sourceProductId: String(payload?.sourceProductId || '').trim(),
       title: String(payload?.title || '').trim(),
       price: Number(payload?.price || 0),
+      amazonReferencePrice: Number(payload?.amazonReferencePrice || 0) > 0 ? Number(payload.amazonReferencePrice) : null,
+      amazonReferenceCapturedAt: String(payload?.amazonReferenceCapturedAt || ''),
       currency: String(payload?.currency || 'EUR'),
       images: Array.isArray(payload?.images) ? payload.images.slice(0, 8) : [],
       environment: String(payload?.environment || 'production')
