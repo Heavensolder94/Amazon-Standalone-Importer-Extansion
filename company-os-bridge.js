@@ -72,11 +72,11 @@
 
   async function importCurrent() {
     if (importRunning) return;
-    const payload = checkProduct(companyOsPayload());
     importRunning = true;
-    if (typeof setCompanyUi === 'function') setCompanyUi('checking', 'Status: Amazon-Produkt wird übertragen ...');
-    if (typeof setStatus === 'function') setStatus('Import in den Company-OS-Nova-Eingang wird geprüft ...', 'warn');
     try {
+      const payload = checkProduct(companyOsPayload());
+      if (typeof setCompanyUi === 'function') setCompanyUi('checking', 'Status: Amazon-Produkt wird übertragen ...');
+      if (typeof setStatus === 'function') setStatus('Import in den Company-OS-Nova-Eingang wird geprüft ...', 'warn');
       const code = await getSessionCode();
       const result = await postProduct(payload, code);
       if (typeof setCompanyUi === 'function') setCompanyUi('connected', 'Status: Import im Nova-Eingang bestätigt');
