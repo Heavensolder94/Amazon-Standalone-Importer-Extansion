@@ -180,7 +180,7 @@
       return true;
     } catch (error) {
       const message = String(error?.message || 'DeepSeek-Optimierung fehlgeschlagen.').trim();
-      setAiNote(`DeepSeek nicht angewendet: ${message}`, 'err');
+      setAiNote(`DeepSeek nicht angewendet: ${message}${automatic ? ' Die Amazon-Produktdaten und der lokale Listing-Entwurf bleiben erhalten.' : ''}`, 'err');
       if (!automatic && typeof setStatus === 'function') setStatus(`DeepSeek-Optimierung fehlgeschlagen. ${message}`, 'err');
       return false;
     } finally {
