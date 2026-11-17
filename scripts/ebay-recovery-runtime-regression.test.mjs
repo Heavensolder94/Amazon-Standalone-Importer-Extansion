@@ -171,6 +171,13 @@ test("recovery URL parser accepts dp, gp/product, gp/aw/d and rejects non-Amazon
     "https://www.amazon.de/gp/product/B0BWND9WBR/ref=abc",
     "https://www.amazon.de/gp/aw/d/B0BWND9WBR?psc=1",
     "https://amazon.de/?asin=B0BWND9WBR",
-  ]) assert.equal(ctx.resolveRecoverySku({ sku: "", sourceProductId: "" }).sku, "AMZ-B0BWND9WBR");
+  ]) {
+    ctx.state.product = { asin: "", url };
+    assert.equal(ctx.resolveRecoverySku({ sku: "", sourceProductId: "" }).sku, "AMZ-B0BWND9WBR");
+  }
+  ctx.state.product = { asin: "", url: "https://not-amazon.example/dp/B0BWND9WBR" };
+  const invalidUrl = ctx.resolveRecoverySku({ sku: "", sourceProductId: "" });
+  assert.equal(invalidUrl.sku, "");
+  assert.match(invalidUrl.error, /Keine gültige Amazon-ASIN/);
   assert.equal(ctx.resolveRecoverySku({ sku: "AMZ-B0BWND9WBR" }).sku, "AMZ-B0BWND9WBR");
 });
