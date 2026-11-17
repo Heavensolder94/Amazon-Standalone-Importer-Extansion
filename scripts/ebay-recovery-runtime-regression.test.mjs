@@ -12,6 +12,10 @@ const identityStart = bridge.indexOf("  function recoveryAsin(");
 const identityEnd = bridge.indexOf("  function readDraftTasks(", identityStart);
 assert.ok(identityStart >= 0 && identityEnd > identityStart, "Recovery SKU resolver must be available");
 const identityCode = bridge.slice(identityStart, identityEnd);
+const toneStart = bridge.indexOf("  function draftSyncTone(");
+const toneEnd = bridge.indexOf("  function feedTaskLookup(", toneStart);
+assert.ok(toneStart >= 0 && toneEnd > toneStart);
+const toneCode = bridge.slice(toneStart, toneEnd);
 
 function setup({ saved = null, result = null, payloadOverrides = {}, product = undefined, asinField = "" } = {}) {
   const payload = {
@@ -57,7 +61,7 @@ function setup({ saved = null, result = null, payloadOverrides = {}, product = u
       ? "eBay-Feed synchronisiert; Amazon-EK-Referenz übertragen"
       : "eBay-Feed synchronisiert",
   };
-  vm.runInNewContext(identityCode + handlerCode + "\nthis.runRecovery = syncExistingSellerHubDraft; this.resolveRecoverySku = resolveRecoverySku;", ctx);
+  vm.runInNewContext(identityCode + toneCode + handlerCode + "\nthis.runRecovery = syncExistingSellerHubDraft; this.resolveRecoverySku = resolveRecoverySku;", ctx);
   return { ctx, payload, statuses, requests, recorded };
 }
 
