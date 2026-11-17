@@ -8,8 +8,12 @@ const start = bridge.indexOf("  async function syncExistingSellerHubDraft(");
 const end = bridge.indexOf("  function openSellerHubDrafts(", start);
 assert.ok(start >= 0 && end > start, "Recovery handler must be available");
 const handlerCode = bridge.slice(start, end);
+const identityStart = bridge.indexOf("  function recoveryAsin(");
+const identityEnd = bridge.indexOf("  function readDraftTasks(", identityStart);
+assert.ok(identityStart >= 0 && identityEnd > identityStart, "Recovery SKU resolver must be available");
+const identityCode = bridge.slice(identityStart, identityEnd);
 
-function setup({ saved = null, result = null } = {}) {
+function setup({ saved = null, result = null, payloadOverrides = {}, product = undefined, asinField = "" } = {}) {
   const payload = {
     sku: "AMZ-B0BWND9WBR",
     sourceProductId: "amazon:B0BWND9WBR",
@@ -17,13 +21,20 @@ function setup({ saved = null, result = null } = {}) {
     price: 20.99,
     amazonReferencePrice: 12.91,
     amazonReferenceCapturedAt: "2026-11-17T15:00:00.000Z",
+    ...payloadOverrides,
   };
+  const loadedProduct = product === undefined
+    ? { asin: "B0BWND9WBR", url: "https://www.amazon.de/dp/B0BWND9WBR" }
+    : product;
   const statuses = [];
   const requests = [];
   const recorded = [];
   const ctx = {
+    state: { product: loadedProduct },
+    URL,
+    document: { getElementById: (id) => id === "asin" ? { value: asinField } : null },
     safeDraftPayload: () => ({ data: payload, error: "" }),
-    sourceKey: () => payload.sourceProductId,
+    sourceKey: (item) => String(item?.sourceProductId || item?.sku || item?.title || "").trim(),
     readDraftTasks: () => saved ? { [payload.sourceProductId]: saved } : {},
     setStatus: (message, level) => statuses.push({ message, level }),
     readSellerSession: async () => "test-session",
@@ -46,7 +57,7 @@ function setup({ saved = null, result = null } = {}) {
       ? "eBay-Feed synchronisiert; Amazon-EK-Referenz übertragen"
       : "eBay-Feed synchronisiert",
   };
-  vm.runInNewContext(handlerCode + "\nthis.runRecovery = syncExistingSellerHubDraft;", ctx);
+  vm.runInNewContext(identityCode + handlerCode + "\nthis.runRecovery = syncExistingSellerHubDraft; this.resolveRecoverySku = resolveRecoverySku;", ctx);
   return { ctx, payload, statuses, requests, recorded };
 }
 
@@ -87,5 +98,79 @@ test("backend recovery failure stays a warning and never records a fictitious ta
 test("no dependency on undefined optional batch-draft updater or task creation within recovery handler", () => {
   assert.doesNotMatch(handlerCode, /updateBatchDraft\s*\(/);
   assert.doesNotMatch(handlerCode, /'create-draft'/);
-  assert.match(handlerCode, /rememberDraftTask\(payload, response\.body\)/);
+  assert.match(handlerCode, /rememberDraftTask\(recoveryPayload, response\.body\)/);
+});
+
+
+test("missing or invalid draft SKU recovers from original loaded Amazon product URL without creating a new eBay draft", async () => {
+  const { ctx, requests, recorded, statuses } = setup({
+    payloadOverrides: { sku: "ELY-000901", sourceProductId: "" },
+    product: { asin: "", url: "https://www.amazon.de/gp/product/B0BWND9WBR?th=1" },
+  });
+  await ctx.runRecovery();
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].action, "recover-draft");
+  assert.equal(requests[0].args.sku, "AMZ-B0BWND9WBR");
+  assert.equal(requests[0].args.sourceProductId, "amazon:B0BWND9WBR");
+  assert.equal(recorded.length, 1);
+  assert.equal(recorded[0].item.sku, "AMZ-B0BWND9WBR");
+  assert.equal(recorded[0].item.sourceProductId, "amazon:B0BWND9WBR");
+  assert.equal(statuses.at(-1).level, "ok");
+});
+
+test("valid sourceProductId rescues an empty SKU even when product state is unavailable", async () => {
+  const { ctx, requests, statuses } = setup({
+    payloadOverrides: { sku: "", sourceProductId: "amazon:B0BWND9WBR" },
+    product: null,
+  });
+  await ctx.runRecovery();
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].args.sku, "AMZ-B0BWND9WBR");
+  assert.equal(statuses.at(-1).level, "ok");
+});
+
+test("ASIN from the popup field can recover an otherwise incomplete product record", async () => {
+  const { ctx, requests } = setup({
+    payloadOverrides: { sku: "", sourceProductId: "" },
+    product: null,
+    asinField: "b0bwnd9wbr",
+  });
+  await ctx.runRecovery();
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].args.sku, "AMZ-B0BWND9WBR");
+});
+
+test("conflicting valid ASINs must fail closed and never match another Amazon product", async () => {
+  const { ctx, requests, recorded, statuses } = setup({
+    payloadOverrides: { sku: "AMZ-B0D63HF7Z4" },
+    product: { asin: "B0BWND9WBR", url: "https://www.amazon.de/dp/B0BWND9WBR" },
+  });
+  await ctx.runRecovery();
+  assert.equal(requests.length, 0);
+  assert.equal(recorded.length, 0);
+  assert.equal(statuses.at(-1).level, "warn");
+  assert.match(statuses.at(-1).message, /widersprüchlich/);
+});
+
+test("no verifiable ASIN means no recovery API call and an actionable correction", async () => {
+  const { ctx, requests, recorded, statuses } = setup({
+    payloadOverrides: { sku: "", sourceProductId: "" },
+    product: { asin: "", url: "https://example.net/not-an-amazon-product/B0BWND9WBR" },
+  });
+  await ctx.runRecovery();
+  assert.equal(requests.length, 0);
+  assert.equal(recorded.length, 0);
+  assert.equal(statuses.at(-1).level, "warn");
+  assert.match(statuses.at(-1).message, /ASIN-Feld/);
+});
+
+test("recovery URL parser accepts dp, gp/product, gp/aw/d and rejects non-Amazon hosts", () => {
+  const { ctx } = setup();
+  for (const url of [
+    "https://www.amazon.de/dp/B0BWND9WBR",
+    "https://www.amazon.de/gp/product/B0BWND9WBR/ref=abc",
+    "https://www.amazon.de/gp/aw/d/B0BWND9WBR?psc=1",
+    "https://amazon.de/?asin=B0BWND9WBR",
+  ]) assert.equal(ctx.resolveRecoverySku({ sku: "", sourceProductId: "" }).sku, "AMZ-B0BWND9WBR");
+  assert.equal(ctx.resolveRecoverySku({ sku: "AMZ-B0BWND9WBR" }).sku, "AMZ-B0BWND9WBR");
 });
