@@ -136,7 +136,7 @@
       ? `${queue.length} gesammelt · ${selected} ausgewählt · ${ready} vorbereitet · ${companyImported} in Company OS · ${ebayDrafts} eBay-Entwürfe bestätigt${errors ? ` · ${errors} Fehler` : ''}. Maximal ${MAX_BATCH} pro Lauf.`
       : 'Noch keine Produkte gesammelt. Öffne eine Amazon-Suche oder Kategorie und starte „Produkte auf Seite sammeln“.';
     prepare.disabled = batchRunning || companyImportRunning || selected === 0;
-    if (company) company.disabled = batchRunning || companyImportRunning || !selectedItems().some((item) => item.status === 'ready');
+    if (company) company.disabled = batchRunning || companyImportRunning || !selectedItems().some((item) => item.status === 'ready' && item.companyOsStatus !== 'imported');
     stop.disabled = !batchRunning;
     const progressValue = queue.length ? Math.round((finished / queue.length) * 100) : 0;
     progress.style.width = `${batchRunning ? Math.max(4, progressValue) : progressValue}%`;
@@ -785,9 +785,9 @@
 
   async function importSelectedToCompanyOs() {
     if (batchRunning || companyImportRunning) return;
-    const items = selectedItems().filter((item) => item.status === 'ready').slice(0, MAX_BATCH);
+    const items = selectedItems().filter((item) => item.status === 'ready' && item.companyOsStatus !== 'imported').slice(0, MAX_BATCH);
     if (!items.length) {
-      setStatus('Zuerst vorbereitete Produkte auswählen. Sammeln allein ist noch kein Import.', 'warn');
+      setStatus('Keine neuen vorbereiteten Produkte ausgewählt. Bereits bestätigte Company-OS-Importe werden nicht erneut gesendet.', 'warn');
       return;
     }
     if (typeof globalThis.elyonCompanyOsImportPreparedBatch !== 'function') {
