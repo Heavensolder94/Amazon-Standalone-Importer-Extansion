@@ -153,9 +153,9 @@
   function statusTextFromTask(body) {
     const status = String(body?.status || '').toUpperCase();
     if (body?.draftVisible === true) {
-      const sync = body?.registration?.persisted === false
-        ? '\nELYON-Synchronisierung noch nicht gespeichert. Bitte später „Vorhandenen Entwurf abgleichen“ verwenden.'
-        : '\nIm ELYON Seller Tool als Feed-Entwurf registriert (Bestand im Seller Hub separat prüfen).';
+      const sync = body?.registration?.persisted === true
+        ? '\nIm ELYON Seller Tool als Feed-Entwurf registriert (Bestand im Seller Hub separat prüfen).'
+        : '\nELYON-Synchronisierung nicht bestätigt. Bitte später „Vorhandenen Entwurf abgleichen“ verwenden.';
       return 'eBay-Feed erfolgreich verarbeitet ✅\nDu findest den Entwurf unter Angebote → Entwürfe.' + sync;
     }
     if (status === 'COMPLETED_WITH_ERROR' || Number(body?.failureCount || 0) > 0) {
