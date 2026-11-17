@@ -64,3 +64,17 @@ test('batch differentiates prepared products from confirmed external actions', (
   assert.match(batch, /eBay: Entwurf bestätigt/);
   assert.match(batch, /Keine eBay-Veröffentlichung|Kein eBay-Angebot veröffentlicht/);
 });
+
+test('previously created Feed draft is recoverable without another eBay submission', () => {
+  const recoveryStart = bridge.indexOf('async function syncExistingSellerHubDraft(');
+  const recoveryEnd = bridge.indexOf('function openSellerHubDrafts(', recoveryStart);
+  assert.ok(recoveryStart > 0 && recoveryEnd > recoveryStart);
+  const recovery = bridge.slice(recoveryStart, recoveryEnd);
+  assert.match(recovery, /readDraftTasks\(\)\[key\]/);
+  assert.match(recovery, /checkSavedTask\(session, payload, saved\)/);
+  assert.doesNotMatch(recovery, /'create-draft'/);
+  assert.match(bridge, /feedTaskLookup\(payload, saved\.taskId, saved\.sku\)/);
+  assert.match(bridge, /feedTaskLookup\(payload, taskId, sku\)/);
+  assert.match(bridge, /Vorhandenen Entwurf mit ELYON abgleichen/);
+  assert.match(bridge, /body\?\.registration\?\.persisted/);
+});
