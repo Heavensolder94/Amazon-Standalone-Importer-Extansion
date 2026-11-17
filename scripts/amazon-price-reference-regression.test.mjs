@@ -24,8 +24,8 @@ test("previous eBay Feed task status and history recovery resubmit only observat
   const start=bridge.indexOf("async function syncExistingSellerHubDraft(");
   const end=bridge.indexOf("function openSellerHubDrafts(",start);
   const recovery=bridge.slice(start,end);
-  assert.match(recovery,/feedTaskLookup\(payload, '', payload\.sku\)/);
-  assert.match(recovery,/checkSavedTask\(session, payload, saved\)/);
+  assert.match(recovery,/feedTaskLookup\(recoveryPayload, '', identity\.sku\)/);
+  assert.match(recovery,/checkSavedTask\(session, recoveryPayload, saved\)/);
   assert.doesNotMatch(recovery,/'create-draft'/);
 });
 
