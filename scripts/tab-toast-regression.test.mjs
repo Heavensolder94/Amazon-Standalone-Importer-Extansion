@@ -44,6 +44,7 @@ test('when extension lost local task ID, recovery searches eBay task history by 
   assert.match(recovery, /if \(!saved\?\.taskId\)/);
   assert.match(recovery, /requestSellerAction\(session, 'recover-draft', feedTaskLookup\(recoveryPayload, '', identity\.sku\)\)/);
   assert.match(recovery, /rememberDraftTask\(recoveryPayload, response\.body\)/);
-  assert.match(recovery, /registration\?\.persisted === true/);
+  assert.match(recovery, /draftSyncTone\(response\.body\)/);
+  assert.match(bridge, /body\?\.registration\?\.persisted !== true/);
   assert.doesNotMatch(recovery, /requestSellerAction\(session, 'create-draft'/);
 });

@@ -113,7 +113,7 @@ function setCompanyUi(status, customText = '') {
   const map = {
     not_checked: { text: 'Status: Company OS nicht geprüft', chip: 'Nicht geprüft', cls: 'chip' },
     checking: { text: 'Status: Company OS wird geprüft', chip: 'Prüfen', cls: 'chip gold' },
-    connected: { text: 'Status: Company OS bereit', chip: 'Bereit', cls: 'chip green' },
+    connected: { text: 'Status: Company-OS-API erreichbar (kein Import)', chip: 'API erreichbar', cls: 'chip green' },
     disconnected: { text: 'Status: Company OS nicht eingerichtet', chip: 'Nicht bereit', cls: 'chip red' },
     error: { text: 'Status: Fehler bei Company OS', chip: 'Fehler', cls: 'chip red' }
   };
@@ -1257,7 +1257,7 @@ async function checkCompanyStatus() {
 
     if (data?.ok === true && data?.storage?.configured === true) {
       setCompanyUi('connected', 'Status: Route erreichbar · Standalone übergibt nur lokal vorbereitete Daten');
-      setStatus('Company OS ist erreichbar. Aus Sicherheitsgründen speichert der Amazon Standalone Importer keinen Sync-Code.', 'ok');
+      setStatus('Company OS API erreichbar. Achtung: Das ist kein Importtest und kein Nachweis einer übertragenen EK-Referenz. Der Abgleich erfolgt über das Seller Tool.', 'ok');
       return;
     }
 

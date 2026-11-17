@@ -178,11 +178,24 @@
       const sync = body?.registration?.persisted === true
         ? '\nIm ELYON Seller Tool als Feed-Entwurf registriert (Bestand im Seller Hub separat prüfen).'
         : '\nELYON-Synchronisierung nicht bestätigt. Bitte „Vorhandenen Entwurf abgleichen“ verwenden.';
-      const reference = body?.amazonReferenceSync?.state === 'reference_recorded'
-        ? '\nAmazon-EK-Referenz in Company OS ergänzt (nicht als bestätigter EK).'
-        : body?.amazonReferenceSync?.state === 'awaiting_review'
-          ? '\nAmazon-EK-Referenz für spätere Produktprüfung vorgemerkt.'
-          : '';
+      const referenceStates = {
+        reference_recorded: 'Amazon-EK-Referenz nachweislich in Company OS gespeichert ✅ (noch kein bestätigter Lieferanten-EK).',
+        reference_missing: 'Amazon-EK nicht übertragen: Auf der Amazon-Produktseite erst den Preis erneut einlesen.',
+        invalid_sku: 'Amazon-EK nicht übertragen: Amazon-SKU fehlt oder ist ungültig.',
+        review_not_found: 'Amazon-EK nicht übertragen: Company OS findet keinen eindeutigen bestehenden Produktprüfungsdatensatz.',
+        ambiguous: 'Amazon-EK nicht übertragen: Mehrere Produktprüfungen passen zu dieser SKU.',
+        authentication_failed: 'Amazon-EK nicht übertragen: Serververbindung zu Company OS nicht autorisiert.',
+        reference_invalid: 'Amazon-EK nicht übertragen: Ungültiger Quellpreis.',
+        reference_date_invalid: 'Amazon-EK nicht übertragen: Datum der Preisbeobachtung ungültig.',
+        confirmation_missing: 'Amazon-EK nicht bestätigt: Company OS hat den gespeicherten Preis nicht eindeutig zurückgemeldet.',
+        connection_invalid: 'Amazon-EK nicht übertragen: Company-OS-Adresse ungültig.',
+        connection_unavailable: 'Amazon-EK nicht übertragen: Company-OS-Serververbindung derzeit nicht verfügbar.',
+        update_failed: 'Amazon-EK nicht übertragen: Company OS hat den Abgleich abgelehnt.'
+      };
+      const refState = String(body?.amazonReferenceSync?.state || '');
+      const reference = body?.amazonReferenceSync
+        ? '\n' + (referenceStates[refState] || 'Amazon-EK-Übertragung konnte nicht bestätigt werden.')
+        : '\nAmazon-EK-Übertragung nicht geprüft (kein Synchronisierungsstatus vorhanden).';
       return 'eBay-Feed erfolgreich verarbeitet ✅\nDu findest den Entwurf unter Angebote → Entwürfe.' + sync + reference;
     }
     if (body?.complete === true && Number(body?.failureCount || 0) === 0) {
@@ -194,6 +207,11 @@
       return details ? `${base}\n${details}` : base;
     }
     return `eBay-Entwurf wird verarbeitet …${body?.taskId ? `\nTask-ID: ${body.taskId}` : ''}\nDas kann bei eBay einige Minuten dauern.`;
+  }
+
+  function draftSyncTone(body) {
+    if (body?.registration?.persisted !== true) return 'warn';
+    return body?.amazonReferenceSync?.state === 'reference_recorded' ? 'ok' : 'warn';
   }
 
   function feedTaskLookup(payload, taskId, sku) {
@@ -342,7 +360,7 @@
         // The normal draft recovery is independent from the optional batch collector.
         // Only the verified eBay task is cached; no new draft or batch update is needed.
         rememberDraftTask(recoveryPayload, response.body);
-        setStatus(statusTextFromTask(response.body), response.body.registration?.persisted === true ? 'ok' : 'warn');
+        setStatus(statusTextFromTask(response.body), draftSyncTone(response.body));
       } catch (error) {
         setStatus('eBay-Feed-Wiederherstellung fehlgeschlagen: ' + String(error?.message || 'Unbekannter Fehler'), 'err');
       }
@@ -356,7 +374,7 @@
         setStatus('Der gespeicherte eBay-Task konnte nicht geprüft werden. Kein neuer eBay-Entwurf wurde angelegt.', 'warn');
         return;
       }
-      setStatus(statusTextFromTask(result.body), result.body?.draftVisible && result.body?.registration?.persisted === true ? 'ok' : 'warn');
+      setStatus(statusTextFromTask(result.body), result.body?.draftVisible ? draftSyncTone(result.body) : 'warn');
     } catch (error) {
       setStatus('Abgleich fehlgeschlagen: ' + String(error?.message || 'Unbekannter Fehler'), 'err');
     }
