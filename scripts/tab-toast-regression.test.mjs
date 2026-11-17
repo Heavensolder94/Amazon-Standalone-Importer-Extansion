@@ -34,3 +34,16 @@ test('Feed draft recovery checks the old eBay task without submitting a duplicat
   assert.match(bridge, /body\?\.registration\?\.persisted === true/);
   assert.match(bridge, /Vorhandenen Entwurf mit ELYON abgleichen/);
 });
+
+test('when extension lost local task ID, recovery searches eBay task history by exact SKU without new draft', async () => {
+  const bridge = await readFile(new URL('../direct-ebay-bridge.js', import.meta.url), 'utf8');
+  const start = bridge.indexOf('async function syncExistingSellerHubDraft(');
+  const end = bridge.indexOf('function openSellerHubDrafts(', start);
+  assert.ok(start > 0 && end > start);
+  const recovery = bridge.slice(start, end);
+  assert.match(recovery, /if \(!saved\?\.taskId\)/);
+  assert.match(recovery, /requestSellerAction\(session, 'recover-draft', feedTaskLookup\(payload, '', payload\.sku\)\)/);
+  assert.match(recovery, /rememberDraftTask\(payload, response\.body\)/);
+  assert.match(recovery, /registration\?\.persisted === true/);
+  assert.doesNotMatch(recovery, /requestSellerAction\(session, 'create-draft'/);
+});
