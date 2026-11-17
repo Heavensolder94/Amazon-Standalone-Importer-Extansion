@@ -35,7 +35,7 @@
       <div class="targetGrid">
         <button id="sendCompanyOsMain" class="targetButton company" type="button">
           <strong>Company OS</strong>
-          <span>Payload lokal vorbereiten / kopieren</span>
+          <span>Direkt in den Nova-Eingang übertragen</span>
         </button>
         <button id="prepareDraftMain" class="targetButton ebay" type="button">
           <strong>eBay-Entwurf</strong>
@@ -48,12 +48,15 @@
     <section class="card">
       <div class="head"><h3>Optional: Company OS</h3><span id="companyChip" class="chip">Nicht geprüft</span></div>
       <p id="companyText" class="small strong">Status: Company OS nicht geprüft</p>
+      <div class="field"><label for="companySyncCode">Company-OS-Sync-Code (dein Arbeitsbereich)</label><input id="companySyncCode" type="password" autocomplete="off" placeholder="Code nur für diese Browser-Sitzung" /></div>
+      <p id="companySessionStatus" class="small">Der Code wird nur während dieser Browser-Sitzung vorgehalten und nicht im Repository gespeichert.</p>
       <div class="btnrow three">
-        <button id="sendCompanyOs" class="btn green">JSON kopieren</button>
+        <button id="sendCompanyOs" class="btn green">In Nova-Eingang importieren</button>
         <button id="checkCompanyStatus" class="btn soft">Status</button>
         <button id="openCompanyOs" class="btn soft">Öffnen</button>
       </div>
-      <p class="small">Amazon bleibt als Retail-/Recherchequelle gekennzeichnet. Der Standalone-Importer speichert dafür keinen Sync-Code oder API-Schlüssel.</p>
+      <div class="btnrow"><button id="copyCompanyOsJson" class="btn soft" type="button">JSON als Alternative kopieren</button><button id="clearCompanySession" class="btn soft" type="button">Sitzungscode löschen</button></div>
+      <p class="small">Den gleichen Sync-Code wie im Company OS verwenden, sonst erscheint das Produkt in einem anderen Arbeitsbereich. Amazon bleibt als ungeprüfte Retail-Recherchequelle gekennzeichnet.</p>
     </section>
 
     <section class="card">
@@ -152,7 +155,7 @@
   </section>
 
   <nav class="bottom">
-    <button id="sendCompanyOsBottom" class="btn green">Company JSON</button>
+    <button id="sendCompanyOsBottom" class="btn green">Company OS importieren</button>
     <button id="prepareDraft" class="btn gold">eBay-Entwurf</button>
   </nav>
 
@@ -183,7 +186,7 @@
         <div class="field"><label>Company OS</label><input id="companyOsUrl" readonly /></div>
         <div class="field"><label>Company OS Import API</label><input id="companyImportUrl" readonly /></div>
         <div class="btnrow"><button id="checkCompanyStatusSettings" class="btn soft">Prüfen</button><button id="openCompanyOsSettings" class="btn soft">Öffnen</button></div>
-        <div class="note blueNote">Aus Sicherheitsgründen wird im Amazon Standalone Importer kein Company-OS-Sync-Code gespeichert. Der Button erstellt nur einen lokalen JSON-Payload zum Kopieren.</div>
+        <div class="note blueNote">Company-OS-Import erfolgt per HTTPS in den Nova-Eingang. Der Code bleibt ausschließlich im flüchtigen Chrome-Sitzungsspeicher und wird beim Browser-Neustart gelöscht. Kein automatischer eBay-Livegang.</div>
       </div>
 
       <div id="ebaySettingsBlock" class="settingBlock integrationSetting">

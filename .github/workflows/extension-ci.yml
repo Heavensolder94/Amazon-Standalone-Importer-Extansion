@@ -30,6 +30,7 @@ jobs:
       - name: Validate hotfix scripts
         run: |
           node --check popup-fixed.js
+          node --check company-os-bridge.js
           node --check image-fix.js
           node --check category-fix.js
           node --check workflow-fix.js
@@ -51,3 +52,5 @@ jobs:
           node scripts/batch-collector-regression.test.mjs
           node scripts/batch-image-regression.test.mjs
           node scripts/tab-toast-regression.test.mjs
+          node scripts/company-os-bridge-regression.test.mjs
+          node scripts/ebay-draft-guard-regression.test.mjs

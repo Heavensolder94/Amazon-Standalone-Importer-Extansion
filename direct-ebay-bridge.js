@@ -43,6 +43,26 @@
     return String(payload?.sourceProductId || payload?.sku || payload?.title || '').trim();
   }
 
+  function draftFingerprint(payload) {
+    const content = JSON.stringify([payload?.title, payload?.description, payload?.price,
+      payload?.categoryId, payload?.conditionEnum, payload?.images, payload?.itemSpecifics,
+      payload?.fulfillmentPolicyId, payload?.paymentPolicyId,
+      payload?.returnPolicyId, payload?.merchantLocationKey]);
+    let hash = 2166136261;
+    for (let i = 0; i < content.length; i += 1) {
+      hash ^= content.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(16) + ':' + content.length;
+  }
+
+  function updateBatchDraft(payload, state, taskId = '') {
+    const asin = String(payload?.sourceProductId || '').replace(/^amazon:/i, '').trim();
+    if (asin && typeof globalThis.elyonBatchMarkEbayDraft === 'function') {
+      globalThis.elyonBatchMarkEbayDraft({ asin, status: state, taskId });
+    }
+  }
+
   function readDraftTasks() {
     try {
       const value = JSON.parse(localStorage.getItem(DRAFT_TASKS_STORAGE_KEY) || '{}');
@@ -65,6 +85,7 @@
       taskId,
       sku: String(body?.sku || payload?.sku || '').trim(),
       feedType: String(body?.feedType || '').trim(),
+      fingerprint: draftFingerprint(payload),
       savedAt: Date.now()
     };
     writeDraftTasks(tasks);
@@ -81,7 +102,8 @@
 
   function savedDraftTask(payload) {
     const key = sourceKey(payload);
-    return key ? readDraftTasks()[key] || null : null;
+    const task = key ? readDraftTasks()[key] || null : null;
+    return task?.fingerprint === draftFingerprint(payload) ? task : null;
   }
 
   async function requestSellerAction(session, action, payload) {
@@ -130,20 +152,37 @@
 
   function statusTextFromTask(body) {
     const status = String(body?.status || '').toUpperCase();
-    if (body?.draftVisible === true || (status === 'COMPLETED' && Number(body?.failureCount || 0) === 0)) {
-      return 'eBay-Entwurf erstellt ✅\nDu findest ihn jetzt im Verkäufer-Cockpit unter Angebote → Entwürfe.';
+    if (body?.draftVisible === true) {
+      const sync = body?.registration?.persisted === true
+        ? '\nIm ELYON Seller Tool als Feed-Entwurf registriert (Bestand im Seller Hub separat prüfen).'
+        : '\nELYON-Synchronisierung nicht bestätigt. Bitte später „Vorhandenen Entwurf abgleichen“ verwenden.';
+      return 'eBay-Feed erfolgreich verarbeitet ✅\nDu findest den Entwurf unter Angebote → Entwürfe.' + sync;
     }
     if (status === 'COMPLETED_WITH_ERROR' || Number(body?.failureCount || 0) > 0) {
       const base = `eBay hat den Entwurf mit Fehlern verarbeitet. Erfolgreich: ${Number(body?.successCount || 0)} · Fehler: ${Number(body?.failureCount || 0)}.`;
       const details = sellerHubTaskErrorDetails(body);
       return details ? `${base}\n${details}` : base;
     }
+    if (body?.complete === true) return 'eBay-Feed verarbeitet, aber Entwurf noch nicht als sichtbar bestätigt. Bitte Seller Hub prüfen.';
     return `eBay-Entwurf wird verarbeitet …${body?.taskId ? `\nTask-ID: ${body.taskId}` : ''}\nDas kann bei eBay einige Minuten dauern.`;
+  }
+
+  function feedTaskLookup(payload, taskId, sku) {
+    return {
+      taskId: String(taskId || '').trim(),
+      sku: String(sku || payload?.sku || '').trim(),
+      sourceProductId: String(payload?.sourceProductId || '').trim(),
+      title: String(payload?.title || '').trim(),
+      price: Number(payload?.price || 0),
+      currency: String(payload?.currency || 'EUR'),
+      images: Array.isArray(payload?.images) ? payload.images.slice(0, 8) : [],
+      environment: String(payload?.environment || 'production')
+    };
   }
 
   async function checkSavedTask(session, payload, saved) {
     if (!saved?.taskId) return null;
-    const response = await requestSellerAction(session, 'draft-status', { taskId: saved.taskId });
+    const response = await requestSellerAction(session, 'draft-status', feedTaskLookup(payload, saved.taskId, saved.sku));
     if (!response.ok) {
       if (response.status === 404 || response.body?.error === 'ebay_draft_task_id_required') forgetDraftTask(payload);
       return null;
@@ -159,10 +198,10 @@
     return { retryAllowed: false, body };
   }
 
-  async function pollDraftTask(session, payload, taskId) {
+  async function pollDraftTask(session, payload, taskId, sku) {
     for (let attempt = 0; attempt < 6; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      const response = await requestSellerAction(session, 'draft-status', { taskId });
+      const response = await requestSellerAction(session, 'draft-status', feedTaskLookup(payload, taskId, sku));
       if (!response.ok) return null;
       const body = response.body || {};
       if (body.complete === true) {
@@ -193,19 +232,23 @@
 
     const payload = { ...built.data };
     delete payload.offerId;
-    const categoryId = String(payload.categoryId || '').trim();
-    if (!/^\d{2,10}$/.test(categoryId)) {
-      setStatus('Für den eBay-Entwurf fehlt noch eine gültige eBay-Kategorie-ID.', 'err');
+    const validationError = typeof validateDraftInput === 'function'
+      ? validateDraftInput(payload)
+      : 'Lokale eBay-Pflichtfeldprüfung nicht verfügbar. Erweiterung bitte neu laden.';
+    if (validationError) {
+      setStatus('eBay-Entwurf blockiert: ' + validationError, 'err');
+      if (typeof renderDesignerReadiness === 'function') renderDesignerReadiness();
       return;
     }
 
-    setStatus('eBay-Entwurf wird an Seller Hub übergeben …', 'warn');
+    setStatus('Geprüfter eBay-Entwurf wird an Seller Hub übergeben …', 'warn');
     try {
       const session = await readSellerSession();
       const saved = savedDraftTask(payload);
       if (saved?.taskId) {
         const existing = await checkSavedTask(session, payload, saved);
         if (existing && !existing.retryAllowed) {
+          updateBatchDraft(payload, existing.body?.draftVisible === true ? 'created' : 'processing', saved.taskId);
           setStatus(statusTextFromTask(existing.body), existing.body?.draftVisible ? 'ok' : 'warn');
           return;
         }
@@ -219,13 +262,49 @@
       }
 
       rememberDraftTask(payload, result);
+      updateBatchDraft(payload, 'processing', result.taskId);
       setStatus(statusTextFromTask(result), 'warn');
-      const completed = await pollDraftTask(session, payload, result.taskId);
+      const completed = await pollDraftTask(session, payload, result.taskId, result.sku);
       if (completed) {
+        const nextState = completed.draftVisible === true ? 'created' : (Number(completed.failureCount || 0) > 0 ? 'error' : 'processing');
+        updateBatchDraft(payload, nextState, result.taskId);
         setStatus(statusTextFromTask(completed), completed.draftVisible ? 'ok' : (Number(completed.failureCount || 0) > 0 ? 'err' : 'warn'));
       }
     } catch (error) {
       setStatus(`eBay-Entwurf konnte nicht erstellt werden. ${error?.message || ''}`.trim(), 'err');
+    }
+  }
+
+  async function syncExistingSellerHubDraft(event) {
+    event?.preventDefault?.();
+    event?.stopImmediatePropagation?.();
+    let built;
+    try {
+      built = typeof safeDraftPayload === 'function' ? safeDraftPayload() : null;
+    } catch {}
+    const payload = built?.data || null;
+    if (!payload) {
+      setStatus('Produktdaten für den Abgleich fehlen. Bitte zuerst denselben Amazon-Artikel erneut einlesen.', 'warn');
+      return;
+    }
+    // Unlike create-draft, recovery intentionally ignores listing-content fingerprint changes.
+    const key = sourceKey(payload);
+    const saved = key ? readDraftTasks()[key] : null;
+    if (!saved?.taskId) {
+      setStatus('Für dieses Produkt ist in dieser Chrome-Installation keine eBay-Task-ID gespeichert. Der Abgleich erstellt ausdrücklich keinen neuen Entwurf.', 'warn');
+      return;
+    }
+    setStatus('Vorhandenen eBay-Feed-Task prüfen und mit ELYON synchronisieren …', 'warn');
+    try {
+      const session = await readSellerSession();
+      const result = await checkSavedTask(session, payload, saved);
+      if (!result) {
+        setStatus('Der gespeicherte eBay-Task konnte nicht geprüft werden. Es wurde kein neuer Entwurf angelegt.', 'warn');
+        return;
+      }
+      setStatus(statusTextFromTask(result.body), result.body?.draftVisible && result.body?.registration?.persisted !== false ? 'ok' : 'warn');
+    } catch (error) {
+      setStatus('Abgleich fehlgeschlagen: ' + String(error?.message || 'Unbekannter Fehler'), 'err');
     }
   }
 
@@ -260,6 +339,18 @@
     const note = card?.querySelector('p.small');
     if (note) {
       note.textContent = 'Der Button erstellt über eBays Seller-Hub-Feed einen echten eBay-Entwurf. Nach der Verarbeitung erscheint er unter Angebote → Entwürfe und kann dort fertig geprüft und veröffentlicht werden.';
+    }
+
+    const draftButton = document.getElementById('prepareDraftEbay');
+    if (draftButton && !document.getElementById('syncSellerHubDraft')) {
+      const sync = document.createElement('button');
+      sync.id = 'syncSellerHubDraft';
+      sync.type = 'button';
+      sync.className = 'btn';
+      sync.textContent = '🔄 Vorhandenen Entwurf mit ELYON abgleichen';
+      sync.title = 'Prüft nur eine lokal gespeicherte eBay-Task-ID. Kein neuer eBay-Entwurf.';
+      sync.addEventListener('click', syncExistingSellerHubDraft);
+      draftButton.insertAdjacentElement('afterend', sync);
     }
 
     const publishButton = document.getElementById('publishEbay');

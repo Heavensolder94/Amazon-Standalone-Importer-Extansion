@@ -9,6 +9,7 @@ const requiredFiles = [
   "popup.js",
   "popup-fixed.html",
   "popup-fixed.js",
+  "company-os-bridge.js",
   "image-fix.js",
   "category-fix.js",
   "workflow-fix.js",
@@ -50,6 +51,7 @@ if (manifest) {
     ok(`Extension-Version: ${manifest.version}`);
   }
 
+  if (!manifest.permissions.includes("storage")) fail("Company OS session storage requires Chrome permission storage.");
   const popup = String(manifest?.action?.default_popup || "");
   if (!popup || !fs.existsSync(path.join(root, popup))) fail(`default_popup fehlt oder existiert nicht: ${popup || "<leer>"}`);
   else ok(`default_popup vorhanden: ${popup}`);
@@ -61,7 +63,7 @@ if (manifest) {
   }
 }
 
-for (const jsFile of ["popup.js", "popup-fixed.js", "image-fix.js", "category-fix.js", "workflow-fix.js", "direct-ebay-bridge.js"]) {
+for (const jsFile of ["popup.js", "popup-fixed.js", "company-os-bridge.js", "image-fix.js", "category-fix.js", "workflow-fix.js", "direct-ebay-bridge.js"]) {
   const syntax = spawnSync(process.execPath, ["--check", path.join(root, jsFile)], {
     encoding: "utf8",
   });
@@ -77,6 +79,9 @@ const popupJs = fs.existsSync(path.join(root, "popup.js"))
   : "";
 const popupFixedJs = fs.existsSync(path.join(root, "popup-fixed.js"))
   ? fs.readFileSync(path.join(root, "popup-fixed.js"), "utf8")
+  : "";
+const companyOsBridgeJs = fs.existsSync(path.join(root, "company-os-bridge.js"))
+  ? fs.readFileSync(path.join(root, "company-os-bridge.js"), "utf8")
   : "";
 const imageFixJs = fs.existsSync(path.join(root, "image-fix.js"))
   ? fs.readFileSync(path.join(root, "image-fix.js"), "utf8")
@@ -104,6 +109,7 @@ if (missingIds.length) fail(`In popup.js referenzierte IDs fehlen in popup.html:
 else ok(`DOM-ID-Check bestanden (${referencedIds.size} statische ID-Referenzen)`);
 
 for (const [script, label] of [
+  ["company-os-bridge.js", "Company-OS-Import"],
   ["image-fix.js", "Bild-Handoff"],
   ["category-fix.js", "Kategorie-Handoff"],
   ["workflow-fix.js", "Preis-/Draft-Handoff"],
@@ -153,12 +159,22 @@ for (const [needle, label] of directBridgeContracts) {
 if (directEbayBridgeJs.includes("chrome.tabs.create")) fail("Direkte eBay-Brücke darf keinen Seller-Tool-Tab öffnen.");
 else ok("Direkte eBay-Brücke öffnet keinen Seller-Tool-Tab");
 
+for (const [needle, label] of [
+  ["chrome.storage.session.set", "flüchtiger Company-OS-Sitzungsspeicher"],
+  ["X-Elyon-Sync-Code", "Company-OS-Header-Authentifizierung"],
+  ["elyonCompanyOsImportPreparedBatch", "Company-OS-Batch-Import"],
+]) {
+  if (!companyOsBridgeJs.includes(needle)) fail(`Company-OS-Brücke fehlt: ${label}`);
+  else ok(label);
+}
+
 const codeFiles = [
   "manifest.json",
   "popup.html",
   "popup.js",
   "popup-fixed.html",
   "popup-fixed.js",
+  "company-os-bridge.js",
   "image-fix.js",
   "category-fix.js",
   "workflow-fix.js",

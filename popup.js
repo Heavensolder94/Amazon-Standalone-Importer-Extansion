@@ -754,7 +754,7 @@ function companyOsPayload() {
         importSource: 'elyon_amazon_importer_extension',
         sourceType: 'retail_research',
         contentUsage: 'source_material_only',
-        importerVersion: '1.1.9',
+        importerVersion: '1.3.0',
         automaticListingDesigner: true
       }
     }
@@ -972,6 +972,10 @@ function validateDraftInput(data) {
   if (!$('contentRightsConfirmed').checked) {
     return 'Bitte zuerst bestätigen, dass du die Listing-Inhalte geprüft hast und nur nutzbare Inhalte verwendest.';
   }
+  const policies = selectedEbayPolicies();
+  if (!policies.fulfillmentPolicyId || !policies.paymentPolicyId || !policies.returnPolicyId || !policies.merchantLocationKey) {
+    return 'Bitte Versand-, Zahlungs-, Rücknahmerichtlinie und eBay-Inventory-Standort auswählen.';
+  }
   return '';
 }
 
@@ -1186,17 +1190,11 @@ async function publishEbayNow() {
 }
 
 async function sendToCompanyOs() {
-  const data = companyOsPayload();
-  const validationError = validateCompanyInput(data);
-  if (validationError) {
-    setStatus(validationError, 'err');
+  if (typeof globalThis.elyonCompanyOsImportCurrent !== 'function') {
+    setStatus('Die sichere Company-OS-Brücke ist noch nicht geladen. Bitte die Erweiterung neu laden.', 'err');
     return;
   }
-
-  $('payloadPreview').value = JSON.stringify(data, null, 2);
-  await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-  setCompanyUi('connected', 'Status: Company OS Payload lokal vorbereitet');
-  setStatus('Company-OS-Payload kopiert ✅\nKein Sync-Code oder anderes Geheimnis wird im Amazon Standalone Importer gespeichert.', 'ok');
+  return globalThis.elyonCompanyOsImportCurrent();
 }
 
 async function copy(text) {
@@ -1218,8 +1216,8 @@ async function checkCompanyStatus() {
     const data = await response.json();
 
     if (data?.ok === true && data?.storage?.configured === true) {
-      setCompanyUi('connected', 'Status: Route erreichbar · Standalone übergibt nur lokal vorbereitete Daten');
-      setStatus('Company OS ist erreichbar. Aus Sicherheitsgründen speichert der Amazon Standalone Importer keinen Sync-Code.', 'ok');
+      setCompanyUi('connected', 'Status: Import-API erreichbar · Sync-Code für Import erforderlich');
+      setStatus('Company OS ist erreichbar. Für den Import wird dein Sync-Code nur für die Browser-Sitzung gespeichert.', 'ok');
       return;
     }
 
