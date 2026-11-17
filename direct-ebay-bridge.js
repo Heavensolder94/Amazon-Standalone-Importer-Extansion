@@ -263,7 +263,23 @@
     const key = sourceKey(payload);
     const saved = key ? readDraftTasks()[key] : null;
     if (!saved?.taskId) {
-      setStatus('Für dieses Produkt ist in dieser Chrome-Erweiterung keine eBay-Task-ID gespeichert. Der Abgleich erstellt keinen neuen Entwurf.', 'warn');
+      // The original Chrome extension may have been replaced and lost localStorage.
+      // Search only the authenticated eBay FX_DRAFT task history by exact SKU.
+      // This action is read-only towards eBay; no new draft can be created.
+      setStatus('Keine lokale Task-ID gefunden. Suche vorhandenen eBay-Feed anhand der SKU …', 'warn');
+      try {
+        const session = await readSellerSession();
+        const response = await requestSellerAction(session, 'recover-draft', feedTaskLookup(payload, '', payload.sku));
+        if (!response.ok || response.body?.ok !== true) {
+          setStatus(response.body?.message || 'Kein passender Feed-Task gefunden. Es wurde kein neuer Entwurf erstellt.', 'warn');
+          return;
+        }
+        rememberDraftTask(payload, response.body);
+        updateBatchDraft(payload, 'created', response.body.taskId);
+        setStatus(statusTextFromTask(response.body), response.body.registration?.persisted === true ? 'ok' : 'warn');
+      } catch (error) {
+        setStatus('eBay-Feed-Wiederherstellung fehlgeschlagen: ' + String(error?.message || 'Unbekannter Fehler'), 'err');
+      }
       return;
     }
     setStatus('Vorhandenen eBay-Feed-Task prüfen und mit ELYON synchronisieren …', 'warn');
