@@ -698,9 +698,14 @@ function draftPayload() {
   const policies = selectedEbayPolicies();
   const asin = clean($('asin').value);
   const linkedDraft = state.ebayDraft && state.ebayDraft.asin === asin ? state.ebayDraft : null;
+  // Only the price recognized on this exact Amazon product page, not a manually edited EK field.
+  const amazonReferencePrice = state.product?.asin === asin
+    ? parsePrice(state.product?.price) : 0;
   return {
     source: 'elyon-amazon-standalone-importer',
     sourceProductId: asin ? `amazon:${asin}` : '',
+    amazonReferencePrice: Number.isFinite(amazonReferencePrice) && amazonReferencePrice > 0 ? amazonReferencePrice : null,
+    amazonReferenceCapturedAt: amazonReferencePrice > 0 ? new Date().toISOString() : '',
     title: clean($('title').value),
     description: $('description').value || '',
     price: Number($('sellPrice').value) || 0,
