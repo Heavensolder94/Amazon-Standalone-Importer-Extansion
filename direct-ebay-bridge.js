@@ -178,11 +178,24 @@
       const sync = body?.registration?.persisted === true
         ? '\nIm ELYON Seller Tool als Feed-Entwurf registriert (Bestand im Seller Hub separat prüfen).'
         : '\nELYON-Synchronisierung nicht bestätigt. Bitte „Vorhandenen Entwurf abgleichen“ verwenden.';
-      const reference = body?.amazonReferenceSync?.state === 'reference_recorded'
-        ? '\nAmazon-EK-Referenz in Company OS ergänzt (nicht als bestätigter EK).'
-        : body?.amazonReferenceSync?.state === 'awaiting_review'
-          ? '\nAmazon-EK-Referenz für spätere Produktprüfung vorgemerkt.'
-          : '';
+      const referenceStates = {
+        reference_recorded: 'Amazon-EK-Referenz nachweislich in Company OS gespeichert ✅ (noch kein bestätigter Lieferanten-EK).',
+        reference_missing: 'Amazon-EK nicht übertragen: Auf der Amazon-Produktseite erst den Preis erneut einlesen.',
+        invalid_sku: 'Amazon-EK nicht übertragen: Amazon-SKU fehlt oder ist ungültig.',
+        review_not_found: 'Amazon-EK nicht übertragen: Company OS findet keinen eindeutigen bestehenden Produktprüfungsdatensatz.',
+        ambiguous: 'Amazon-EK nicht übertragen: Mehrere Produktprüfungen passen zu dieser SKU.',
+        authentication_failed: 'Amazon-EK nicht übertragen: Serververbindung zu Company OS nicht autorisiert.',
+        reference_invalid: 'Amazon-EK nicht übertragen: Ungültiger Quellpreis.',
+        reference_date_invalid: 'Amazon-EK nicht übertragen: Datum der Preisbeobachtung ungültig.',
+        confirmation_missing: 'Amazon-EK nicht bestätigt: Company OS hat den gespeicherten Preis nicht eindeutig zurückgemeldet.',
+        connection_invalid: 'Amazon-EK nicht übertragen: Company-OS-Adresse ungültig.',
+        connection_unavailable: 'Amazon-EK nicht übertragen: Company-OS-Serververbindung derzeit nicht verfügbar.',
+        update_failed: 'Amazon-EK nicht übertragen: Company OS hat den Abgleich abgelehnt.'
+      };
+      const refState = String(body?.amazonReferenceSync?.state || '');
+      const reference = body?.amazonReferenceSync
+        ? '\n' + (referenceStates[refState] || 'Amazon-EK-Übertragung konnte nicht bestätigt werden.')
+        : '\nAmazon-EK-Übertragung nicht geprüft (kein Synchronisierungsstatus vorhanden).';
       return 'eBay-Feed erfolgreich verarbeitet ✅\nDu findest den Entwurf unter Angebote → Entwürfe.' + sync + reference;
     }
     if (body?.complete === true && Number(body?.failureCount || 0) === 0) {
