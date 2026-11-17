@@ -53,7 +53,7 @@ test("eBay draft success is never mislabeled as Amazon-EK reference success",()=
   for(const [state,expected] of [
     ["reference_recorded",/nachweislich in Company OS gespeichert/],
     ["review_not_found",/findet keinen eindeutigen bestehenden Produktprüfungsdatensatz/],
-    ["reference_missing",/Amazon-Preis nicht übertragen/],
+    ["reference_missing",/Amazon-EK nicht übertragen/],
     ["confirmation_missing",/Amazon-EK nicht bestätigt/],
   ]){
     const body={...draft,amazonReferenceSync:{state}};
