@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import vmModule from "node:vm";
 
 const popup=fs.readFileSync(new URL("../popup.js",import.meta.url),"utf8");
 const bridge=fs.readFileSync(new URL("../direct-ebay-bridge.js",import.meta.url),"utf8");
@@ -32,3 +33,35 @@ test("extension version is bumped without adding automatic publishing",()=>{
   assert.equal(manifest.version,"1.2.25");
   assert.doesNotMatch(bridge,/syncAmazonPriceReference\([^)]*\)\s*;\s*publish/);
 });
+
+test("Company OS settings report only API availability, not automatic import success",()=>{
+  const settings=fs.readFileSync(new URL("../popup.html",import.meta.url),"utf8");
+  assert.match(settings,/kontrolliert nur, ob die Company-OS-API erreichbar ist/);
+  assert.match(settings,/„Company JSON“ kopiert ausschließlich Daten/);
+  assert.match(popup,/Status: Company-OS-API erreichbar \(kein Import\)/);
+  assert.match(popup,/kein Importtest und kein Nachweis einer übertragenen EK-Referenz/);
+});
+
+test("eBay draft success is never mislabeled as Amazon-EK reference success",()=>{
+  const start=bridge.indexOf("  function statusTextFromTask(");
+  const end=bridge.indexOf("  function feedTaskLookup(",start);
+  assert.ok(start>=0&&end>start);
+  const vm=requireVm();
+  const ctx={sellerHubTaskErrorDetails:()=>""};
+  vm.runInNewContext(bridge.slice(start,end)+"\nthis.format = statusTextFromTask; this.tone = draftSyncTone;",ctx);
+  const draft={draftVisible:true,registration:{persisted:true}};
+  for(const [state,expected] of [
+    ["reference_recorded",/nachweislich in Company OS gespeichert/],
+    ["review_not_found",/findet keinen eindeutigen bestehenden Produktprüfungsdatensatz/],
+    ["reference_missing",/Amazon-Preis nicht übertragen/],
+    ["confirmation_missing",/Amazon-EK nicht bestätigt/],
+  ]){
+    const body={...draft,amazonReferenceSync:{state}};
+    assert.match(ctx.format(body),expected);
+    assert.equal(ctx.tone(body),state==="reference_recorded"?"ok":"warn");
+  }
+  assert.match(ctx.format(draft),/kein Synchronisierungsstatus vorhanden/);
+  assert.equal(ctx.tone(draft),"warn");
+});
+
+function requireVm(){ return vmModule; }
