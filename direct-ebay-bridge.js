@@ -281,8 +281,9 @@
           setStatus(response.body?.message || 'Kein passender Feed-Task gefunden. Es wurde kein neuer Entwurf erstellt.', 'warn');
           return;
         }
+        // The normal draft recovery is independent from the optional batch collector.
+        // Only the verified eBay task is cached; no new draft or batch update is needed.
         rememberDraftTask(payload, response.body);
-        updateBatchDraft(payload, 'created', response.body.taskId);
         setStatus(statusTextFromTask(response.body), response.body.registration?.persisted === true ? 'ok' : 'warn');
       } catch (error) {
         setStatus('eBay-Feed-Wiederherstellung fehlgeschlagen: ' + String(error?.message || 'Unbekannter Fehler'), 'err');
@@ -343,7 +344,7 @@
       sync.type = 'button';
       sync.className = 'btn';
       sync.textContent = '🔄 Vorhandenen Entwurf mit ELYON abgleichen';
-      sync.title = 'Prüft nur eine lokal gespeicherte eBay-Task-ID; erstellt keinen neuen eBay-Entwurf.';
+      sync.title = 'Gleicht einen bestehenden eBay-Feed-Task ab; falls die lokale Task-ID fehlt, erfolgt die Suche anhand der SKU in der eBay-Feed-Historie. Erstellt keinen neuen Entwurf.';
       sync.addEventListener('click', syncExistingSellerHubDraft);
       draftButton.insertAdjacentElement('afterend', sync);
     }
