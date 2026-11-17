@@ -19,3 +19,18 @@ test('browser-tab toast keeps slide-in behavior and safe restricted-page fallbac
   assert.match(toast, /Der normale Status in der Extension bleibt trotzdem erhalten/);
   assert.match(String(manifest.description || ''), /Slide-in-Statusmeldungen im aktiven Chrome-Tab/i);
 });
+
+test('Feed draft recovery checks the old eBay task without submitting a duplicate', async () => {
+  const bridge = await readFile(new URL('../direct-ebay-bridge.js', import.meta.url), 'utf8');
+  const start = bridge.indexOf('async function syncExistingSellerHubDraft(');
+  const end = bridge.indexOf('function openSellerHubDrafts(', start);
+  assert.ok(start > 0 && end > start);
+  const recovery = bridge.slice(start, end);
+  assert.match(recovery, /readDraftTasks\(\)\[key\]/);
+  assert.match(recovery, /checkSavedTask\(session, payload, saved\)/);
+  assert.doesNotMatch(recovery, /'create-draft'/);
+  assert.match(bridge, /feedTaskLookup\(payload, saved\.taskId, saved\.sku\)/);
+  assert.match(bridge, /feedTaskLookup\(payload, taskId, sku\)/);
+  assert.match(bridge, /body\?\.registration\?\.persisted === true/);
+  assert.match(bridge, /Vorhandenen Entwurf mit ELYON abgleichen/);
+});
