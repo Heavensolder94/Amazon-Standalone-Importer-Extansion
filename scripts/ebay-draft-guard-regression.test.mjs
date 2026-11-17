@@ -41,7 +41,7 @@ test('draft guard requires manually reviewed images, rights and full eBay setup'
   assert.equal(runDraftValidation(), '');
   assert.match(runDraftValidation({ images: [] }), /Bild/);
   assert.match(runDraftValidation({ categoryId: '' }), /Kategorie/);
-  assert.match(runDraftValidation({ itemSpecifics: {} }), /Merkmale/);
+  assert.match(runDraftValidation({ itemSpecifics: {} }), /merkmale/i);
   assert.match(runDraftValidation({}, { rights: false }), /Inhalte geprüft/);
   assert.match(runDraftValidation({}, { policiesReady: false }), /Richtlinie|Standort/);
 });
