@@ -58,8 +58,8 @@
       // Never infer an Amazon product identity from an unrelated website's URL.
       if (!/(^|\.)amazon\.(?:de|com|co\.uk|fr|it|es|nl|pl|se|be)$/i.test(url.hostname)) return '';
       const pathMatch = url.pathname.match(/\/(?:dp|gp\/product|gp\/aw\/d)\/([A-Z0-9]{10})(?=\/|$)/i);
-      const value = pathMatch?.[1] || url.searchParams.get('asin') || url.searchParams.get('ASIN') || '';
-      return recoveryAsin(value);
+      const asinValue = pathMatch?.[1] || url.searchParams.get('asin') || url.searchParams.get('ASIN') || '';
+      return recoveryAsin(asinValue);
     } catch {
       return '';
     }
