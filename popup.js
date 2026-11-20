@@ -773,6 +773,8 @@ function companyOsPayload() {
     product: {
       title: clean($('title').value || state.product?.title),
       description: $('description').value || state.product?.description || '',
+      originalTitle: state.product?.title || '',
+      originalDescription: state.product?.description || '',
       asin,
       sourceUrl: state.product?.url || '',
       amazonReferencePrice: reference,
@@ -780,7 +782,17 @@ function companyOsPayload() {
       currency,
       images: getProductImages(),
       variants: Array.isArray(state.product?.variants) ? state.product.variants : [],
+      selectedVariations: state.product?.variations || {},
+      bullets: Array.isArray(state.product?.bullets) ? state.product.bullets : [],
+      breadcrumbs: Array.isArray(state.product?.breadcrumbs) ? state.product.breadcrumbs : [],
       brand: $('brand').value || '',
+      department: $('department').value || '',
+      style: $('style').value || '',
+      material: $('material').value || '',
+      modelNumber: $('modelNumber').value || '',
+      ebayCategoryId: clean($('ebayCategoryId').value || ''),
+      ebayCategoryName: clean(state.ebaySelectedCategory?.categoryName || ''),
+      itemSpecifics: (() => { try { return manualEbayItemSpecifics(); } catch { return {}; } })(),
       details: state.product?.details || {}
     }
   };
