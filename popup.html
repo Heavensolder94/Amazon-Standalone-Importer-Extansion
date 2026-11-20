@@ -35,7 +35,7 @@
       <div class="targetGrid">
         <button id="sendCompanyOsMain" class="targetButton company" type="button">
           <strong>Company OS</strong>
-          <span>Payload lokal vorbereiten / kopieren</span>
+          <span>Zur Produktprüfung übertragen</span>
         </button>
         <button id="prepareDraftMain" class="targetButton ebay" type="button">
           <strong>eBay-Entwurf</strong>
@@ -49,7 +49,7 @@
       <div class="head"><h3>Optional: Company OS</h3><span id="companyChip" class="chip">Nicht geprüft</span></div>
       <p id="companyText" class="small strong">Status: Company OS nicht geprüft</p>
       <div class="btnrow three">
-        <button id="sendCompanyOs" class="btn green">JSON kopieren</button>
+        <button id="sendCompanyOs" class="btn green">Zur Produktprüfung</button>
         <button id="checkCompanyStatus" class="btn soft">Status</button>
         <button id="openCompanyOs" class="btn soft">Öffnen</button>
       </div>
@@ -145,14 +145,15 @@
 
     <section id="priceCard" class="card hidden">
       <div class="head"><h3>Preis & Marge</h3><span id="marginChip" class="chip">Berechnen</span></div>
-      <div class="grid2"><div class="field"><label>Einkaufspreis €</label><input id="buyPrice" type="number" step="0.01" /></div><div class="field"><label>eBay Verkaufspreis €</label><input id="sellPrice" type="number" step="0.01" placeholder="manuell" /></div></div>
-      <div class="prices"><div class="price"><span>Gebühren geschätzt</span><strong id="fees">0,00 €</strong></div><div id="profitBox" class="price profit"><span>Gewinn geschätzt</span><strong id="profit">0,00 €</strong></div></div>
+      <div class="grid2"><div class="field"><label>Kostenannahme € (Amazon-Preis als Referenz)</label><input id="buyPrice" type="number" step="0.01" /></div><div class="field"><label>eBay Verkaufspreis €</label><input id="sellPrice" type="number" step="0.01" placeholder="manuell" /></div></div>
+      <p class="small">Vorläufige Modellrechnung: Der Amazon-Preis ist kein bestätigter Lieferanten-EK. Versand, Steuern und weitere Kosten können fehlen.</p>
+      <div class="prices"><div class="price"><span>Gebühren geschätzt</span><strong id="fees">0,00 €</strong></div><div id="profitBox" class="price profit"><span>Vorläufiger Rechenwert</span><strong id="profit">0,00 €</strong></div></div>
       <p class="small">Faustschätzung: 12 % + 0,35 €. Tatsächliche eBay-Gebühren können je Kategorie, Konto und Angebot abweichen.</p>
     </section>
   </section>
 
   <nav class="bottom">
-    <button id="sendCompanyOsBottom" class="btn green">Company JSON</button>
+    <button id="sendCompanyOsBottom" class="btn green">An Company OS</button>
     <button id="prepareDraft" class="btn gold">eBay-Entwurf</button>
   </nav>
 
@@ -183,7 +184,7 @@
         <div class="field"><label>Company OS</label><input id="companyOsUrl" readonly /></div>
         <div class="field"><label>Company OS Import API</label><input id="companyImportUrl" readonly /></div>
         <div class="btnrow"><button id="checkCompanyStatusSettings" class="btn soft">Prüfen</button><button id="openCompanyOsSettings" class="btn soft">Öffnen</button></div>
-        <div class="note blueNote">„Prüfen“ kontrolliert nur, ob die Company-OS-API erreichbar ist – es überträgt keine Artikel oder Preise. „Company JSON“ kopiert ausschließlich Daten. Die Amazon-EK-Referenz wird beim Abgleich eines bestehenden eBay-Entwurfs über das angemeldete Seller Tool an Company OS übertragen. Eine erfolgreiche Preisübertragung muss separat bestätigt werden.</div>
+        <div class="note blueNote">„Prüfen“ kontrolliert nur, ob die Company-OS-API erreichbar ist. „An Company OS“ überträgt den Artikel über die angemeldete Seller-Tool-Sitzung zur Produktprüfung. Der Amazon-Preis bleibt eine ungeprüfte Referenz.</div>
       </div>
 
       <div id="ebaySettingsBlock" class="settingBlock integrationSetting">

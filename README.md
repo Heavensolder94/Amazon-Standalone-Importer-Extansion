@@ -4,7 +4,7 @@ Eigenständige Chrome-Erweiterung für Amazon-Produktrecherche, automatische Lis
 
 ## v1.2.2 – Preis- und Draft-Readiness
 
-Der Importer liest den aktuellen Amazon-Preis jetzt robuster aus mehreren aktuellen Amazon-Layouts, strukturierten Meta-Daten und JSON-LD. Der erkannte Wert wird als **Einkaufspreis** übernommen.
+Der Importer liest den aktuellen Amazon-Preis aus mehreren Amazon-Layouts, strukturierten Meta-Daten und JSON-LD. Er ist eine unverbindliche Preisreferenz und kein bestätigter Lieferanten-Einkaufspreis.
 
 Zusätzlich:
 
@@ -12,7 +12,7 @@ Zusätzlich:
 - Nur echte Amazon-Produktdetailseiten mit ASIN werden importiert.
 - eBay-Kategorien werden vor der automatischen Übernahme auf Relevanz geprüft.
 - Bei eindeutig normaler Neuware wird der eBay-Zustand `NEW` vorausgewählt; bei Gebraucht-/Renewed-Hinweisen bleibt er offen.
-- Aus dem Einkaufspreis wird ein editierbarer Elyon-Verkaufspreisvorschlag erzeugt. Die bestehende Gebührenannahme von 12 % + 0,35 € wird berücksichtigt; der Vorschlag zielt auf mindestens 20 % Marge oder 5 € Gewinn.
+- Aus der Kostenannahme wird ein editierbarer Verkaufspreisvorschlag berechnet. Die Rechnung mit 12 % + 0,35 € ist vorläufig und berücksichtigt nicht zwingend Versand, Steuern und weitere Kosten.
 - eBay-Pflichtmerkmale werden zusätzlich gegen erkannte Amazon-Details und Varianten gematcht. Unbekannte Werte werden nicht erfunden.
 - Wenn ein Draft blockiert wird, zeigt die Extension jetzt **alle** lokalen und serverseitigen Blocker statt nur einer allgemeinen Meldung.
 
@@ -33,7 +33,7 @@ Nach einem Amazon-Import kann der Listing Designer automatisch durchlaufen:
 
 Der Standalone Importer übernimmt – soweit auf der Amazon-Seite tatsächlich erkannt – unter anderem:
 
-- Einkaufspreis
+- beobachteter Amazon-Preis als Referenz
 - Marke
 - Abteilung
 - Stil
@@ -59,6 +59,10 @@ Unter **Einstellungen → Listing Designer** ist der automatische Lauf standardm
 - Versand-, Zahlungs-, Rücknahmerichtlinie und eBay-Inventory-Standort sind in den Einstellungen auswählbar.
 - Amazon-Bild-URLs werden zur Prüfung vorausgefüllt, aber erst nach der bewussten Inhalts-/Rechtebestätigung in einen eBay-Draft übernommen.
 - Amazon-Inhalte bleiben Quelldaten. Die automatisch erzeugten Listing-Texte und Preisvorschläge sind Arbeitswerte und müssen vor Nutzung geprüft werden.
+
+## Company-OS-Produktprüfung
+
+„An Company OS“ überträgt den ausgewählten Amazon-Artikel über eine angemeldete Seller-Tool-Sitzung zur Produktprüfung. Eine erfolgreiche Übernahme erfordert die bestätigte ELY-Artikelnummer und den Prüfstatus. Der beobachtete Amazon-Preis wird nur als Referenz gespeichert. Lieferant, tatsächliche Kosten und Bildrechte bleiben ungeprüft. Bereits vorhandene Artikel werden nicht überschrieben; bei Zeitüberschreitung vor einem erneuten Versuch Company OS prüfen. Der Weg benötigt ein Company OS mit `createOnlyReview` und die passende Seller-Tool-Version.
 
 ## Sicherheit
 

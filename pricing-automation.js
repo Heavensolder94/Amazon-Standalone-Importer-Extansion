@@ -191,7 +191,7 @@
     const heading = document.createElement('h3');
     heading.textContent = 'Preisautomatik';
     const intro = document.createElement('p');
-    intro.textContent = 'Verkaufspreis automatisch aus Einkaufspreis, Marge und Mindestgewinn berechnen';
+    intro.textContent = 'Verkaufspreis anhand einer vorläufigen Kostenannahme berechnen';
     copy.append(heading, intro);
     const chip = document.createElement('span');
     chip.className = 'chip green';

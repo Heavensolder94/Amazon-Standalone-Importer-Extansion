@@ -179,27 +179,27 @@
         ? '\nIm ELYON Seller Tool als Feed-Entwurf registriert (Bestand im Seller Hub separat prüfen).'
         : '\nELYON-Synchronisierung nicht bestätigt. Bitte „Vorhandenen Entwurf abgleichen“ verwenden.';
       const referenceStates = {
-        reference_recorded: 'Amazon-EK-Referenz nachweislich in Company OS gespeichert ✅ (noch kein bestätigter Lieferanten-EK).',
-        reference_missing: 'Amazon-EK nicht übertragen: Auf der Amazon-Produktseite erst den Preis erneut einlesen.',
-        invalid_sku: 'Amazon-EK nicht übertragen: Amazon-SKU fehlt oder ist ungültig.',
-        review_not_found: 'Amazon-EK nicht übertragen: Company OS findet keinen eindeutigen bestehenden Produktprüfungsdatensatz.',
-        ambiguous: 'Amazon-EK nicht übertragen: Mehrere Produktprüfungen passen zu dieser SKU.',
-        authentication_failed: 'Amazon-EK nicht übertragen: Serververbindung zu Company OS nicht autorisiert.',
-        reference_invalid: 'Amazon-EK nicht übertragen: Ungültiger Quellpreis.',
-        reference_date_invalid: 'Amazon-EK nicht übertragen: Datum der Preisbeobachtung ungültig.',
-        confirmation_missing: 'Amazon-EK nicht bestätigt: Company OS hat den gespeicherten Preis nicht eindeutig zurückgemeldet.',
-        connection_invalid: 'Amazon-EK nicht übertragen: Company-OS-Adresse ungültig.',
-        connection_unavailable: 'Amazon-EK nicht übertragen: Company-OS-Serververbindung derzeit nicht verfügbar.',
-        update_failed: 'Amazon-EK nicht übertragen: Company OS hat den Abgleich abgelehnt.'
+        reference_recorded: 'Amazon-Preisreferenz nachweislich in Company OS gespeichert ✅ (noch kein bestätigter Lieferanten-EK).',
+        reference_missing: 'Amazon-Preisreferenz nicht übertragen: Auf der Amazon-Produktseite erst den Preis erneut einlesen.',
+        invalid_sku: 'Amazon-Preisreferenz nicht übertragen: Amazon-SKU fehlt oder ist ungültig.',
+        review_not_found: 'Amazon-Preisreferenz nicht übertragen: Company OS findet keinen eindeutigen bestehenden Produktprüfungsdatensatz.',
+        ambiguous: 'Amazon-Preisreferenz nicht übertragen: Mehrere Produktprüfungen passen zu dieser SKU.',
+        authentication_failed: 'Amazon-Preisreferenz nicht übertragen: Serververbindung zu Company OS nicht autorisiert.',
+        reference_invalid: 'Amazon-Preisreferenz nicht übertragen: Ungültiger Quellpreis.',
+        reference_date_invalid: 'Amazon-Preisreferenz nicht übertragen: Datum der Preisbeobachtung ungültig.',
+        confirmation_missing: 'Amazon-Preisreferenz nicht bestätigt: Company OS hat den gespeicherten Preis nicht eindeutig zurückgemeldet.',
+        connection_invalid: 'Amazon-Preisreferenz nicht übertragen: Company-OS-Adresse ungültig.',
+        connection_unavailable: 'Amazon-Preisreferenz nicht übertragen: Company-OS-Serververbindung derzeit nicht verfügbar.',
+        update_failed: 'Amazon-Preisreferenz nicht übertragen: Company OS hat den Abgleich abgelehnt.'
       };
       const refState = String(body?.amazonReferenceSync?.state || '');
       const reference = body?.amazonReferenceSync
-        ? '\n' + (referenceStates[refState] || 'Amazon-EK-Übertragung konnte nicht bestätigt werden.')
-        : '\nAmazon-EK-Übertragung nicht geprüft (kein Synchronisierungsstatus vorhanden).';
-      return 'eBay-Feed erfolgreich verarbeitet ✅\nDu findest den Entwurf unter Angebote → Entwürfe.' + sync + reference;
+        ? '\n' + (referenceStates[refState] || 'Amazon-Preisreferenz-Übertragung konnte nicht bestätigt werden.')
+        : '\nAmazon-Preisreferenz-Übertragung nicht geprüft (kein Synchronisierungsstatus vorhanden).';
+      return 'eBay meldet einen erfolgreich verarbeiteten Feed-Eintrag. Bitte unter Angebote → Entwürfe prüfen, ob der Entwurf sichtbar ist.' + sync + reference;
     }
     if (body?.complete === true && Number(body?.failureCount || 0) === 0) {
-      return 'eBay-Feed verarbeitet, aber Sichtbarkeit noch nicht bestätigt. Bitte Seller Hub prüfen.';
+      return 'eBay-Feed beendet, aber ein erfolgreicher Eintrag ist nicht bestätigt. Bitte Seller Hub prüfen.';
     }
     if (status === 'COMPLETED_WITH_ERROR' || Number(body?.failureCount || 0) > 0) {
       const base = `eBay hat den Entwurf mit Fehlern verarbeitet. Erfolgreich: ${Number(body?.successCount || 0)} · Fehler: ${Number(body?.failureCount || 0)}.`;
