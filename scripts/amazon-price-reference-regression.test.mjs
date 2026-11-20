@@ -30,16 +30,16 @@ test("previous eBay Feed task status and history recovery resubmit only observat
 });
 
 test("extension version is bumped without adding automatic publishing",()=>{
-  assert.equal(manifest.version,"1.2.25");
+  assert.equal(manifest.version,"1.2.26");
   assert.doesNotMatch(bridge,/syncAmazonPriceReference\([^)]*\)\s*;\s*publish/);
 });
 
 test("Company OS settings report only API availability, not automatic import success",()=>{
   const settings=fs.readFileSync(new URL("../popup.html",import.meta.url),"utf8");
   assert.match(settings,/kontrolliert nur, ob die Company-OS-API erreichbar ist/);
-  assert.match(settings,/„Company JSON“ kopiert ausschließlich Daten/);
+  assert.match(settings,/„An Company OS“ überträgt den Artikel/);
   assert.match(popup,/Status: Company-OS-API erreichbar \(kein Import\)/);
-  assert.match(popup,/kein Importtest und kein Nachweis einer übertragenen EK-Referenz/);
+  assert.match(popup,/Das bestätigt noch keinen Import/);
 });
 
 test("eBay draft success is never mislabeled as Amazon-EK reference success",()=>{
@@ -53,8 +53,8 @@ test("eBay draft success is never mislabeled as Amazon-EK reference success",()=
   for(const [state,expected] of [
     ["reference_recorded",/nachweislich in Company OS gespeichert/],
     ["review_not_found",/findet keinen eindeutigen bestehenden Produktprüfungsdatensatz/],
-    ["reference_missing",/Amazon-EK nicht übertragen/],
-    ["confirmation_missing",/Amazon-EK nicht bestätigt/],
+    ["reference_missing",/Amazon-Preisreferenz nicht übertragen/],
+    ["confirmation_missing",/Amazon-Preisreferenz nicht bestätigt/],
   ]){
     const body={...draft,amazonReferenceSync:{state}};
     assert.match(ctx.format(body),expected);

@@ -765,36 +765,23 @@ function draftPayload() {
 }
 
 function companyOsPayload() {
+  const asin = normalizedAmazonAsin($('asin').value);
+  const reference = observedAmazonPurchaseReference(state.product, asin);
+  const rawPrice = String(state.product?.price || '');
+  const currency = /€|\bEUR\b/i.test(rawPrice) ? 'EUR' : /£|\bGBP\b/i.test(rawPrice) ? 'GBP' : /\$|\bUSD\b/i.test(rawPrice) ? 'USD' : '';
   return {
     product: {
       title: clean($('title').value || state.product?.title),
       description: $('description').value || state.product?.description || '',
-      source: 'amazon',
-      sourceLabel: 'Amazon',
-      sourceRole: 'retail_research_source',
+      asin,
       sourceUrl: state.product?.url || '',
-      rawPrice: Number($('buyPrice').value) || parsePrice(state.product?.price),
-      salePrice: Number($('sellPrice').value) || 0,
+      amazonReferencePrice: reference,
+      amazonReferenceCapturedAt: reference !== null ? new Date().toISOString() : '',
+      currency,
       images: getProductImages(),
       variants: Array.isArray(state.product?.variants) ? state.product.variants : [],
       brand: $('brand').value || '',
-      department: $('department').value || '',
-      style: $('style').value || '',
-      material: $('material').value || '',
-      modelNumber: $('modelNumber').value || '',
-      itemSpecifics: (() => { try { return manualEbayItemSpecifics(); } catch { return {}; } })(),
-      ebayCategoryId: clean($('ebayCategoryId').value || ''),
-      category: clean(state.ebaySelectedCategory?.categoryName || ''),
-      riskNotes: 'Amazon ist hier Retail-/Recherchequelle. Inhalte und Bilder nicht automatisch für eBay übernehmen. Produkt noch nicht geprüft.',
-      importedAt: new Date().toISOString(),
-      meta: {
-        asin: $('asin').value || '',
-        importSource: 'elyon_amazon_importer_extension',
-        sourceType: 'retail_research',
-        contentUsage: 'source_material_only',
-        importerVersion: '1.1.9',
-        automaticListingDesigner: true
-      }
+      details: state.product?.details || {}
     }
   };
 }
@@ -1231,10 +1218,18 @@ async function sendToCompanyOs() {
     return;
   }
 
-  $('payloadPreview').value = JSON.stringify(data, null, 2);
-  await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-  setCompanyUi('connected', 'Status: Company OS Payload lokal vorbereitet');
-  setStatus('Company-OS-Payload kopiert ✅\nKein Sync-Code oder anderes Geheimnis wird im Amazon Standalone Importer gespeichert.', 'ok');
+  try {
+    setStatus('Artikel wird an die Company-OS-Produktprüfung übertragen …', 'warn');
+    const result = await sellerProtectedPost('/api/products/review-intake', { mode: 'amazon_research', ...data });
+    if (!result.ok || result.body?.ok !== true || !/^ELY-\d{6,}$/i.test(result.body?.articleNumber || '') || result.body?.reviewStatus !== 'in_review') {
+      setStatus(result.body?.message || 'Übertragung nicht bestätigt. Bitte vor erneutem Versuch Company OS prüfen.', 'err');
+      return;
+    }
+    setCompanyUi('connected', 'Status: Artikel in Company OS zur Prüfung angelegt');
+    setStatus(`Zur Produktprüfung übertragen ✅\nArtikelnummer: ${result.body.articleNumber}\nAmazon-Preis ist eine Referenz; Lieferant, Kosten und Bildrechte sind noch zu prüfen.`, 'ok');
+  } catch (error) {
+    setStatus(`Übertragung nicht bestätigt. ${error.message || ''} Bitte vor erneutem Versuch Company OS prüfen.`, 'err');
+  }
 }
 
 async function copy(text) {
@@ -1256,8 +1251,8 @@ async function checkCompanyStatus() {
     const data = await response.json();
 
     if (data?.ok === true && data?.storage?.configured === true) {
-      setCompanyUi('connected', 'Status: Route erreichbar · Standalone übergibt nur lokal vorbereitete Daten');
-      setStatus('Company OS API erreichbar. Achtung: Das ist kein Importtest und kein Nachweis einer übertragenen EK-Referenz. Der Abgleich erfolgt über das Seller Tool.', 'ok');
+      setCompanyUi('connected', 'Status: Company-OS-API erreichbar');
+      setStatus('Company OS API erreichbar. Das bestätigt noch keinen Import. Die Übertragung erfolgt über die angemeldete Seller-Tool-Sitzung.', 'ok');
       return;
     }
 
