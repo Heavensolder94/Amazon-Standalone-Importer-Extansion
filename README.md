@@ -64,6 +64,8 @@ Unter **Einstellungen → Listing Designer** ist der automatische Lauf standardm
 
 „An Company OS“ überträgt den ausgewählten Amazon-Artikel über eine angemeldete Seller-Tool-Sitzung zur Produktprüfung. Eine erfolgreiche Übernahme erfordert die bestätigte ELY-Artikelnummer und den Prüfstatus. Der beobachtete Amazon-Preis wird nur als Referenz gespeichert. Lieferant, tatsächliche Kosten und Bildrechte bleiben ungeprüft. Bereits vorhandene Artikel werden nicht überschrieben; bei Zeitüberschreitung vor einem erneuten Versuch Company OS prüfen. Der Weg benötigt ein Company OS mit `createOnlyReview` und die passende Seller-Tool-Version.
 
+Ab Version 1.2.27 werden Originaltitel und -beschreibung, ausgewählte Varianten, Bulletpoints, Breadcrumbs und eingelesene Merkmale mit übertragen. Eine gewählte Variante allein bestätigt keine vollständige Variantenmatrix.
+
 ## Sicherheit
 
 - Keine automatische Veröffentlichung.
