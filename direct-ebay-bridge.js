@@ -200,7 +200,6 @@
     const select = document.getElementById('elyonRecoveryDraftChoice');
     const confirm = document.getElementById('elyonRecoveryDraftConfirm');
     const cleanup = document.getElementById('elyonRecoveryDraftDeleteInElyon');
-    const cleanup = document.getElementById('elyonRecoveryDraftDeleteInElyon');
     if (!panel || !select || !confirm) {
       setStatus('Die Entwurfsauswahl ist im aktuellen Erweiterungs-Popup nicht vorhanden. Bitte Chrome-Erweiterung aktualisieren und neu laden.', 'err');
       return false;
