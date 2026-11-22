@@ -54,3 +54,4 @@ jobs:
           node scripts/amazon-price-reference-regression.test.mjs
           node scripts/amazon-source-reference-runtime.test.mjs
           node scripts/ebay-recovery-runtime-regression.test.mjs
+          node scripts/draft-status-retry-regression.test.mjs

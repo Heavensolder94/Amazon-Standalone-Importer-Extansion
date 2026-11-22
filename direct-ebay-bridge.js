@@ -233,7 +233,6 @@
     if (!saved?.taskId) return null;
     const response = await requestSellerAction(session, 'draft-status', feedTaskLookup(payload, saved.taskId, saved.sku));
     if (!response.ok) {
-      if (response.status === 404 || response.body?.error === 'ebay_draft_task_id_required') forgetDraftTask(payload);
       return null;
     }
     const body = response.body || {};
@@ -293,7 +292,11 @@
       const saved = savedDraftTask(payload);
       if (saved?.taskId) {
         const existing = await checkSavedTask(session, payload, saved);
-        if (existing && !existing.retryAllowed) {
+        if (!existing) {
+          setStatus('Der vorhandene eBay-Task konnte nicht geprüft werden. Es wurde kein neuer Entwurf angelegt. Bitte später erneut prüfen oder „Vorhandenen Entwurf mit ELYON abgleichen“ verwenden.', 'warn');
+          return;
+        }
+        if (!existing.retryAllowed) {
           setStatus(statusTextFromTask(existing.body), existing.body?.draftVisible ? 'ok' : 'warn');
           return;
         }
@@ -470,3 +473,4 @@
 
   sellerLifecycleAction = directSellerLifecycleAction;
 })();
+
