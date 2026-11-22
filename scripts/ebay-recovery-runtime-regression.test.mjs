@@ -43,6 +43,7 @@ function setup({ saved = null, result = null, payloadOverrides = {}, product = u
     setStatus: (message, level) => statuses.push({ message, level }),
     selectedRecoveryChoice: () => null, // Existing tests use ASIN-based recovery only.
     recoveryChoicesFromLocalTasks: () => [],
+    readDeletedTaskIds: () => new Set(),
     readSellerSession: async () => "test-session",
     feedTaskLookup: (item, taskId, sku) => ({ taskId, sku, sourceProductId: item.sourceProductId,
       amazonReferencePrice: item.amazonReferencePrice, amazonReferenceCapturedAt: item.amazonReferenceCapturedAt }),
