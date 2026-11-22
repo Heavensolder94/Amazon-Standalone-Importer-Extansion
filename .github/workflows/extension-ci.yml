@@ -55,3 +55,4 @@ jobs:
           node scripts/amazon-source-reference-runtime.test.mjs
           node scripts/ebay-recovery-runtime-regression.test.mjs
           node scripts/draft-status-retry-regression.test.mjs
+          node scripts/feed-evidence-status-regression.test.mjs

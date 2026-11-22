@@ -174,7 +174,7 @@
 
   function statusTextFromTask(body) {
     const status = String(body?.status || '').toUpperCase();
-    if (body?.draftVisible === true) {
+    if (body?.feedConfirmed === true || (body?.feedConfirmed == null && body?.draftVisible === true)) {
       const sync = body?.registration?.persisted === true
         ? '\nIm ELYON Seller Tool als Feed-Entwurf registriert (Bestand im Seller Hub separat prüfen).'
         : '\nELYON-Synchronisierung nicht bestätigt. Bitte „Vorhandenen Entwurf abgleichen“ verwenden.';
@@ -196,7 +196,7 @@
       const reference = body?.amazonReferenceSync
         ? '\n' + (referenceStates[refState] || 'Amazon-Preisreferenz-Übertragung konnte nicht bestätigt werden.')
         : '\nAmazon-Preisreferenz-Übertragung nicht geprüft (kein Synchronisierungsstatus vorhanden).';
-      return 'eBay meldet einen erfolgreich verarbeiteten Feed-Eintrag. Bitte unter Angebote → Entwürfe prüfen, ob der Entwurf sichtbar ist.' + sync + reference;
+      return 'eBay-Feed erfolgreich verarbeitet. Ob der Entwurf im Seller Hub sichtbar ist, wurde NICHT verifiziert. Bitte Angebote → Entwürfe öffnen und dort prüfen.' + sync + reference;
     }
     if (body?.complete === true && Number(body?.failureCount || 0) === 0) {
       return 'eBay-Feed beendet, aber ein erfolgreicher Eintrag ist nicht bestätigt. Bitte Seller Hub prüfen.';
@@ -211,7 +211,8 @@
 
   function draftSyncTone(body) {
     if (body?.registration?.persisted !== true) return 'warn';
-    return body?.amazonReferenceSync?.state === 'reference_recorded' ? 'ok' : 'warn';
+    // Persisted ELYON references still do not prove Seller Hub visibility.
+    return body?.sellerHubVisibility === 'verified' ? 'ok' : 'warn';
   }
 
   function feedTaskLookup(payload, taskId, sku) {
@@ -253,7 +254,7 @@
       if (!response.ok) return null;
       const body = response.body || {};
       if (body.complete === true) {
-        if (body.draftVisible !== true && Number(body.failureCount || 0) > 0 && Number(body.successCount || 0) === 0) {
+        if (body.feedConfirmed !== true && Number(body.failureCount || 0) > 0 && Number(body.successCount || 0) === 0) {
           forgetDraftTask(payload);
         }
         return body;
@@ -297,7 +298,7 @@
           return;
         }
         if (!existing.retryAllowed) {
-          setStatus(statusTextFromTask(existing.body), existing.body?.draftVisible ? 'ok' : 'warn');
+          setStatus(statusTextFromTask(existing.body), 'warn');
           return;
         }
       }
@@ -313,7 +314,7 @@
       setStatus(statusTextFromTask(result), 'warn');
       const completed = await pollDraftTask(session, payload, result.taskId, result.sku);
       if (completed) {
-        setStatus(statusTextFromTask(completed), completed.draftVisible ? 'ok' : (Number(completed.failureCount || 0) > 0 ? 'err' : 'warn'));
+        setStatus(statusTextFromTask(completed), Number(completed.failureCount || 0) > 0 ? 'err' : 'warn');
       }
     } catch (error) {
       setStatus(`eBay-Entwurf konnte nicht erstellt werden. ${error?.message || ''}`.trim(), 'err');
@@ -377,7 +378,7 @@
         setStatus('Der gespeicherte eBay-Task konnte nicht geprüft werden. Kein neuer eBay-Entwurf wurde angelegt.', 'warn');
         return;
       }
-      setStatus(statusTextFromTask(result.body), result.body?.draftVisible ? draftSyncTone(result.body) : 'warn');
+      setStatus(statusTextFromTask(result.body), draftSyncTone(result.body));
     } catch (error) {
       setStatus('Abgleich fehlgeschlagen: ' + String(error?.message || 'Unbekannter Fehler'), 'err');
     }
@@ -395,25 +396,25 @@
     const mainStrong = mainButton?.querySelector('strong');
     const mainSub = mainButton?.querySelector('span');
     if (mainStrong) mainStrong.textContent = 'eBay-Entwurf';
-    if (mainSub) mainSub.textContent = 'Direkt in Seller Hub → Entwürfe';
+    if (mainSub) mainSub.textContent = 'Per eBay-Feed – im Seller Hub prüfen';
 
     ['prepareDraftEbay', 'prepareDraft'].forEach((id) => {
       const button = document.getElementById(id);
       if (!button) return;
       button.disabled = false;
       button.textContent = 'eBay-Entwurf';
-      button.title = 'Erstellt einen echten Entwurf im eBay Verkäufer-Cockpit unter Angebote → Entwürfe.';
+      button.title = 'Sendet einen unveröffentlichten FX_DRAFT-Feed an eBay. Die Sichtbarkeit im Seller Hub muss danach geprüft werden.';
     });
     if (mainButton) {
       mainButton.disabled = false;
-      mainButton.title = 'Erstellt einen echten Entwurf im eBay Verkäufer-Cockpit unter Angebote → Entwürfe.';
+      mainButton.title = 'Sendet einen unveröffentlichten FX_DRAFT-Feed an eBay. Die Sichtbarkeit im Seller Hub muss danach geprüft werden.';
     }
 
     const ebayButton = document.getElementById('prepareDraftEbay');
     const card = ebayButton?.closest('.card');
     const note = card?.querySelector('p.small');
     if (note) {
-      note.textContent = 'Der Button erstellt über eBays Seller-Hub-Feed einen echten eBay-Entwurf. Nach der Verarbeitung erscheint er unter Angebote → Entwürfe und kann dort fertig geprüft und veröffentlicht werden.';
+      note.textContent = 'Der Button übermittelt einen unveröffentlichten FX_DRAFT-Feed an eBay. Eine erfolgreiche Feed-Verarbeitung ist noch kein Beweis für einen sichtbaren Entwurf: Bitte anschließend unter Angebote → Entwürfe prüfen.';
     }
 
     const draftButton = document.getElementById('prepareDraftEbay');

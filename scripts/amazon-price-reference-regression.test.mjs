@@ -30,7 +30,7 @@ test("previous eBay Feed task status and history recovery resubmit only observat
 });
 
 test("extension version is bumped without adding automatic publishing",()=>{
-  assert.equal(manifest.version,"1.2.27");
+  assert.equal(manifest.version,"1.2.28");
   assert.doesNotMatch(bridge,/syncAmazonPriceReference\([^)]*\)\s*;\s*publish/);
 });
 
@@ -58,10 +58,12 @@ test("eBay draft success is never mislabeled as Amazon-EK reference success",()=
   ]){
     const body={...draft,amazonReferenceSync:{state}};
     assert.match(ctx.format(body),expected);
-    assert.equal(ctx.tone(body),state==="reference_recorded"?"ok":"warn");
+    assert.equal(ctx.tone(body),"warn"); // Price-reference sync is not Seller Hub visibility evidence.
   }
   assert.match(ctx.format(draft),/kein Synchronisierungsstatus vorhanden/);
   assert.equal(ctx.tone(draft),"warn");
+  assert.equal(ctx.tone({ ...draft, sellerHubVisibility: "verified" }), "ok");
+  assert.equal(ctx.tone({ ...draft, sellerHubVisibility: "not_verified" }), "warn");
 });
 
 function requireVm(){ return vmModule; }
