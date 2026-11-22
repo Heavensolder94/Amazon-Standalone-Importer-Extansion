@@ -30,7 +30,8 @@ test("previous eBay Feed task status and history recovery resubmit only observat
 });
 
 test("extension version is bumped without adding automatic publishing",()=>{
-  assert.equal(manifest.version,"1.2.29");
+  assert.match(manifest.version, /^1\\.2\\.\\d+$/);
+  assert.ok(Number(manifest.version.split(".")[2]) >= 31, "ASIN-free recovery selector requires version 1.2.31 or newer");
   assert.doesNotMatch(bridge,/syncAmazonPriceReference\([^)]*\)\s*;\s*publish/);
 });
 
