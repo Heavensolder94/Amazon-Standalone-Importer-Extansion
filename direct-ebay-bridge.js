@@ -210,8 +210,9 @@
   }
 
   function draftSyncTone(body) {
-    // A persisted price reference or feed task does not establish Seller Hub visibility.
-    return 'warn';
+    if (body?.registration?.persisted !== true) return 'warn';
+    // Persisted ELYON references still do not prove Seller Hub visibility.
+    return body?.sellerHubVisibility === 'verified' ? 'ok' : 'warn';
   }
 
   function feedTaskLookup(payload, taskId, sku) {
