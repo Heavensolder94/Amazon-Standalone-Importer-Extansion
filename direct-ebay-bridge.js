@@ -635,8 +635,8 @@
       select.addEventListener('change', () => {
         confirm.disabled = !selectedRecoveryChoice();
       });
-      confirm.addEventListener('click', (event) => {
-        if (selectedRecoveryChoice()) syncExistingSellerHubDraft(event);
+      confirm.addEventListener('click', async (event) => {
+        if (selectedRecoveryChoice()) await syncExistingSellerHubDraft(event);
       });
     }
     // The popup is destroyed when Chrome closes it. Restore previously
