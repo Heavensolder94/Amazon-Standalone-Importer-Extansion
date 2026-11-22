@@ -750,6 +750,7 @@
     installDraftHandlers();
     const select = document.getElementById('elyonRecoveryDraftChoice');
     const confirm = document.getElementById('elyonRecoveryDraftConfirm');
+    const cleanup = document.getElementById('elyonRecoveryDraftDeleteInElyon');
     if (select && confirm) {
       select.addEventListener('change', () => {
         const missing = !selectedRecoveryChoice();
