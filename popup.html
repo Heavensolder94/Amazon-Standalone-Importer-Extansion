@@ -25,6 +25,15 @@
       <p>Amazon-Produktdaten erfassen. Der automatische Listing Designer bereitet Titel, Beschreibung, Kategorie und eBay-Pflichtmerkmale direkt im Standalone Importer vor.</p>
       <button id="loadProduct" class="primary">Amazon-Produkt importieren</button>
       <div id="status" class="status">Bereit. Öffne eine Amazon-Produktseite und starte den Import.</div>
+      <section id="elyonRecoveryDraftPanel" class="recoveryPanel hidden" aria-labelledby="elyonRecoveryDraftHeading">
+        <strong id="elyonRecoveryDraftHeading">🔄 Gefundene eBay-Entwürfe</strong>
+        <p>Wähle hier den bereits bei eBay sichtbaren Entwurf. ELYON erstellt keinen neuen.</p>
+        <label for="elyonRecoveryDraftChoice">Vorhandenen Entwurf auswählen</label>
+        <select id="elyonRecoveryDraftChoice" aria-label="Vorhandenen eBay-Entwurf auswählen">
+          <option value="">Bitte Entwurf auswählen …</option>
+        </select>
+        <button id="elyonRecoveryDraftConfirm" class="btn blue full" type="button" disabled>Ausgewählten Entwurf mit ELYON abgleichen</button>
+      </section>
       <div class="flow"><div><b>1</b>Import</div><div><b>2</b>Designer</div><div><b>3</b>Prüfen</div><div><b>4</b>eBay</div></div>
     </div>
   </section>

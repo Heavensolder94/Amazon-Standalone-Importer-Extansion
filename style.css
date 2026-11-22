@@ -38,3 +38,15 @@
 
 /* v1.1.9 – automatischer Standalone Listing Designer */
 .designerSteps{display:grid;gap:8px;margin-bottom:10px}.designerStep{display:grid;grid-template-columns:30px 1fr;gap:9px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:16px;background:#f8fafc}.designerStep>span{width:26px;height:26px;border-radius:10px;display:grid;place-items:center;background:#e2e8f0;color:#475569;font-size:10px;font-weight:1000}.designerStep strong{display:block;font-size:11px;color:#1e293b}.designerStep small{display:block;margin-top:2px;font-size:9.5px;line-height:1.3;color:#64748b}.designerStep.running{background:#fffbeb;border-color:#fde68a}.designerStep.running>span{background:#fef3c7;color:#92400e}.designerStep.ok{background:#ecfdf5;border-color:#bbf7d0}.designerStep.ok>span{background:#dcfce7;color:#047857}.designerStep.warn{background:#fff7ed;border-color:#fed7aa}.designerStep.warn>span{background:#ffedd5;color:#c2410c}.designerStep.error{background:#fef2f2;border-color:#fecaca}.designerStep.error>span{background:#fee2e2;color:#b91c1c}.designerDetails{margin:4px 0 10px;padding:11px;border:1px solid var(--line);border-radius:18px;background:#f8fafc}.designerDetails summary{cursor:pointer;font-size:11px;font-weight:1000;color:#334155}.designerDetails[open] summary{margin-bottom:10px}.designerDetails .small{margin:0 0 10px}.designerDetails .divider{margin:8px 0 12px}
+
+/* v1.2.31 – deutlich sichtbare eBay-Feed-Wiederherstellung im Popup-Kopf */
+.recoveryPanel{
+  margin-top:12px;padding:14px;border:2px solid #f5c15b;border-radius:18px;
+  background:#fffef5;color:#17233c;box-shadow:0 8px 24px rgba(15,23,42,.18);
+}
+.recoveryPanel strong{display:block;font-size:14px;color:#92400e;margin-bottom:5px}
+.recoveryPanel p{color:#475569;font-size:11px;line-height:1.45;margin:0 0 12px}
+.recoveryPanel label{display:block;color:#334155;font-size:11px;font-weight:850;letter-spacing:0;text-transform:none;margin:0 0 7px}
+.recoveryPanel select{display:block;width:100%;height:auto;min-height:46px;background:#fff;border:1px solid #d6b655;color:#0f172a;font-size:12px;font-weight:650;padding:10px;overflow:hidden}
+.recoveryPanel .btn{display:block;width:100%;height:auto;min-height:44px;margin-top:10px;font-size:11.5px;white-space:normal;padding:10px}
+.recoveryPanel .btn:disabled{opacity:.52}

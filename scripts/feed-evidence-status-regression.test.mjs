@@ -16,7 +16,7 @@ vm.runInNewContext(
   context,
 );
 
-test("successful FX_LISTING processing must not claim Seller Hub visibility", () => {
+test("successful FX_DRAFT processing must not claim Seller Hub visibility", () => {
   const message = context.statusTextFromTask({
     status: "COMPLETED",
     feedConfirmed: true,
@@ -55,6 +55,6 @@ test("incomplete or failed eBay task is not shown as successful", () => {
 
 test("all draft controls warn that Seller Hub verification is still required", () => {
   assert.match(source, /Eine erfolgreiche Feed-Verarbeitung ist noch kein Beweis für einen sichtbaren Entwurf/);
-  assert.match(source, /Sendet einen unveröffentlichten FX_LISTING-Feed an eBay/);
+  assert.match(source, /Sendet einen unveröffentlichten FX_DRAFT-Feed an eBay/);
   assert.match(source, /setStatus\(statusTextFromTask\(existing\.body\), 'warn'\)/);
 });

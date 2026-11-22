@@ -6,6 +6,8 @@
   const SELLER_EXTENSION_ACTION_URL = 'https://elyonsellertool.vercel.app/api/ebay/extension-action';
   const SELLER_HUB_DRAFTS_URL = 'https://www.ebay.de/sh/lst/drafts';
   const DRAFT_TASKS_STORAGE_KEY = 'elyon_amazon_importer_seller_hub_draft_tasks_v1';
+  const RECOVERY_CHOICES_STORAGE_KEY = 'elyon_amazon_importer_recovery_choices_v1';
+  const RECOVERY_CHOICES_MAX_AGE_MS = 24 * 60 * 60 * 1000;
   const SELLER_SESSION_ORIGINS = [
     'https://elyonsellertool.vercel.app/',
     'https://elyon-seller-tool.vercel.app/'
@@ -154,43 +156,35 @@
       ? candidate : null;
   }
 
-  function showRecoveryChoices(candidates) {
-    const button = document.getElementById('syncSellerHubDraft');
-    if (!button) return;
-    const known = new Set();
-    recoveryCandidates = candidates
-      .filter((item) => item && /^AMZ-[A-Z0-9]{10}$/.test(String(item.sku || '').toUpperCase())
+  function showRecoveryChoices(candidates, { focus = true, persist = true } = {}) {
+    // The picker stays in the top status area, not inside the narrow
+    // two-column eBay action grid. It is visible even in a 430px popup.
+    const panel = document.getElementById('elyonRecoveryDraftPanel');
+    const select = document.getElementById('elyonRecoveryDraftChoice');
+    const confirm = document.getElementById('elyonRecoveryDraftConfirm');
+    if (!panel || !select || !confirm) {
+      setStatus('Die Entwurfsauswahl ist im aktuellen Erweiterungs-Popup nicht vorhanden. Bitte Chrome-Erweiterung aktualisieren und neu laden.', 'err');
+      return false;
+    }
+    const seen = new Set();
+    recoveryCandidates = (Array.isArray(candidates) ? candidates : [])
+      .filter(item => item && /^AMZ-[A-Z0-9]{10}$/.test(String(item.sku || '').toUpperCase())
         && /^[A-Za-z0-9_-]{3,220}$/.test(String(item.taskId || '')))
-      .map((item) => ({
+      .map(item => ({
         sku: String(item.sku).toUpperCase(),
-        taskId: String(item.taskId),
+        taskId: String(item.taskId).trim(),
         title: String(item.title || 'Amazon-Entwurf').slice(0, 100),
-      })).filter((item) => {
+      })).filter(item => {
         const key = item.sku + ':' + item.taskId;
-        if (known.has(key)) return false;
-        known.add(key);
+        if (seen.has(key)) return false;
+        seen.add(key);
         return true;
       }).slice(0, 12);
-    let label = document.getElementById('elyonRecoveryDraftLabel');
-    if (!label) {
-      label = document.createElement('label');
-      label.id = 'elyonRecoveryDraftLabel';
-      label.style.display = 'block';
-      label.style.margin = '8px 0';
-      label.style.fontSize = '12px';
-      label.textContent = 'Vorhandenen eBay-Entwurf auswählen';
-      const select = document.createElement('select');
-      select.id = 'elyonRecoveryDraftChoice';
-      select.style.width = '100%';
-      select.style.marginTop = '5px';
-      label.appendChild(select);
-      button.insertAdjacentElement('afterend', label);
-    }
-    const select = document.getElementById('elyonRecoveryDraftChoice');
+    if (!recoveryCandidates.length) return false;
     select.replaceChildren();
     const placeholder = document.createElement('option');
     placeholder.value = '';
-    placeholder.textContent = 'Bitte einen Entwurf auswählen …';
+    placeholder.textContent = 'Bitte Entwurf auswählen …';
     select.appendChild(placeholder);
     recoveryCandidates.forEach((item, index) => {
       const option = document.createElement('option');
@@ -198,7 +192,37 @@
       option.textContent = item.title + ' · ' + item.sku;
       select.appendChild(option);
     });
-    label.style.display = 'block';
+    select.value = '';
+    confirm.disabled = true;
+    panel.classList.remove('hidden');
+    if (persist) {
+      try {
+        localStorage.setItem(RECOVERY_CHOICES_STORAGE_KEY,
+          JSON.stringify({ savedAt: Date.now(), candidates: recoveryCandidates }));
+      } catch {}
+    }
+    if (focus) {
+      try { panel.scrollIntoView?.({ block: 'start', behavior: 'instant' }); } catch {}
+    }
+    return true;
+  }
+
+  function restoreRecoveryChoices() {
+    try {
+      const entry = JSON.parse(localStorage.getItem(RECOVERY_CHOICES_STORAGE_KEY) || 'null');
+      if (!entry || !Number.isFinite(entry.savedAt) ||
+          Date.now() - entry.savedAt > RECOVERY_CHOICES_MAX_AGE_MS) return;
+      if (Array.isArray(entry.candidates)) {
+        showRecoveryChoices(entry.candidates, { focus: false, persist: false });
+      }
+    } catch {}
+  }
+
+  function clearRecoveryChoices() {
+    recoveryCandidates = [];
+    try { localStorage.removeItem(RECOVERY_CHOICES_STORAGE_KEY); } catch {}
+    const panel = document.getElementById('elyonRecoveryDraftPanel');
+    if (panel) panel.classList.add('hidden');
   }
 
   async function recoverSelectedTask(session, payload, candidate) {
@@ -211,8 +235,7 @@
       return;
     }
     rememberDraftTask(payload, response.body);
-    const selectorLabel = document.getElementById('elyonRecoveryDraftLabel');
-    if (selectorLabel) selectorLabel.style.display = 'none';
+    clearRecoveryChoices();
     setStatus(statusTextFromTask(response.body), draftSyncTone(response.body));
   }
 
@@ -418,13 +441,18 @@
     } catch {}
     const payload = built?.data || {};
     const identity = resolveRecoverySku(payload);
-    let chosen = null;
+    let chosen = selectedRecoveryChoice();
+    // If an Amazon product is loaded, an explicitly selected old task must
+    // never be silently linked to a different product.
+    if (chosen && !identity.error && chosen.sku !== identity.sku) {
+      setStatus('Der ausgewählte eBay-Entwurf passt nicht zur aktuell eingelesenen Amazon-ASIN. Bitte den richtigen Artikel wählen. Es wurde nichts verändert.', 'warn');
+      return;
+    }
     if (identity.error) {
       if (!identity.error.startsWith('Keine gültige Amazon-ASIN gefunden.')) {
         setStatus(identity.error, 'warn');
         return; // Conflicting ASINs are never bypassed by recovered candidates.
       }
-      chosen = selectedRecoveryChoice();
       if (!chosen) {
         setStatus('Keine ASIN mehr im Popup – vorhandene eBay-Draft-Tasks werden gelesen …', 'warn');
         try {
@@ -444,8 +472,9 @@
             return;
           }
           if (deduped.length > 1) {
-            showRecoveryChoices(deduped);
-            setStatus('Es wurden mehrere frühere Entwürfe gefunden. Bitte den richtigen Entwurf im Auswahlfeld markieren und nochmals „Vorhandenen Entwurf mit ELYON abgleichen“ klicken. Es wird nichts neu angelegt.', 'warn');
+            if (showRecoveryChoices(deduped)) {
+              setStatus('Mehrere eBay-Entwürfe gefunden. Die GELB MARKIERTE AUSWAHL steht direkt unter dieser Meldung. Bitte einen Artikel auswählen und dort auf „Ausgewählten Entwurf mit ELYON abgleichen“ klicken. Kein neuer Entwurf wird angelegt.', 'warn');
+            }
             return;
           }
           chosen = deduped[0];
@@ -600,6 +629,19 @@
   function initSellerHubDraftFlow() {
     clarifyDraftUi();
     installDraftHandlers();
+    const select = document.getElementById('elyonRecoveryDraftChoice');
+    const confirm = document.getElementById('elyonRecoveryDraftConfirm');
+    if (select && confirm) {
+      select.addEventListener('change', () => {
+        confirm.disabled = !selectedRecoveryChoice();
+      });
+      confirm.addEventListener('click', async (event) => {
+        if (selectedRecoveryChoice()) await syncExistingSellerHubDraft(event);
+      });
+    }
+    // The popup is destroyed when Chrome closes it. Restore previously
+    // discovered candidate choices so a user can open it again and select.
+    restoreRecoveryChoices();
   }
 
   if (document.readyState === 'loading') {
