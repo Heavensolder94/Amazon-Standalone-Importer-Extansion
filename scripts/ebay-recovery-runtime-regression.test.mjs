@@ -41,6 +41,8 @@ function setup({ saved = null, result = null, payloadOverrides = {}, product = u
     sourceKey: (item) => String(item?.sourceProductId || item?.sku || item?.title || "").trim(),
     readDraftTasks: () => saved ? { [payload.sourceProductId]: saved } : {},
     setStatus: (message, level) => statuses.push({ message, level }),
+    selectedRecoveryChoice: () => null, // Existing tests use ASIN-based recovery only.
+    recoveryChoicesFromLocalTasks: () => [],
     readSellerSession: async () => "test-session",
     feedTaskLookup: (item, taskId, sku) => ({ taskId, sku, sourceProductId: item.sourceProductId,
       amazonReferencePrice: item.amazonReferencePrice, amazonReferenceCapturedAt: item.amazonReferenceCapturedAt }),
@@ -156,16 +158,18 @@ test("conflicting valid ASINs must fail closed and never match another Amazon pr
   assert.match(statuses.at(-1).message, /widersprüchlich/);
 });
 
-test("no verifiable ASIN means no recovery API call and an actionable correction", async () => {
+test("no verifiable ASIN performs read-only Draft discovery, never creates a new eBay task", async () => {
   const { ctx, requests, recorded, statuses } = setup({
     payloadOverrides: { sku: "", sourceProductId: "" },
     product: { asin: "", url: "https://example.net/not-an-amazon-product/B0BWND9WBR" },
   });
   await ctx.runRecovery();
-  assert.equal(requests.length, 0);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].action, "list-draft-recovery-candidates");
   assert.equal(recorded.length, 0);
   assert.equal(statuses.at(-1).level, "warn");
-  assert.match(statuses.at(-1).message, /ASIN-Feld/);
+  assert.match(statuses.at(-1).message, /Amazon-SKU|ASIN/);
+  assert.ok(!requests.some(({ action }) => action === "create-draft"));
 });
 
 test("recovery URL parser accepts dp, gp/product, gp/aw/d and rejects non-Amazon hosts", () => {
