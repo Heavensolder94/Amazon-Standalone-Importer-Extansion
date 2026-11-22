@@ -30,3 +30,28 @@ Erweiterungsordners auf v1.2.30** an. Chrome unter
 ausgetauscht wurden. Neue Erweiterungsberechtigungen sind nicht nötig.
 
 Der eBay-Entwurf selbst bleibt erhalten und wird nicht veröffentlicht.
+
+## v1.2.31 – Sichtbare, dauerhafte Auswahl (23.11.2026)
+
+**Fehlerursache:** v1.2.30 platzierte das dynamische `<select>` als drittes
+Kind einer zweispaltigen Schaltflächenzeile. Die Statusmeldung dagegen stand
+im Kopf des Popups. Im kleinen Chrome-Fenster war die Auswahl dadurch nicht
+erkennbar; nach Schließen des Popups ging die Auswahl vollständig verloren.
+
+**Behoben:**
+- Feste, kontrastreiche Auswahl direkt unter `#status` im Popup-Header.
+- Automatisches Scrollen zum Auswahlfeld bei mehreren Treffern.
+- Gesonderter Button „Ausgewählten Entwurf mit ELYON abgleichen“
+  (erst nach bewusster Auswahl freigegeben).
+- Die Liste der bereits identifizierten eBay-Task-IDs und Amazon-SKUs wird
+  lokal maximal 24 Stunden zwischengespeichert und beim erneuten Öffnen des
+  Popups wieder eingeblendet. Sie ist keine Bestätigung: Die tatsächliche
+  Zuordnung erfolgt weiter ausschließlich nach eBay-Prüfung der Task-ID
+  und Original-CSV.
+- Nach erfolgreicher Registrierung wird die Auswahl ausgeblendet und der
+  Zwischenspeicher gelöscht.
+- Keine neuen eBay-Entwürfe, Veröffentlichungen oder extra Berechtigungen.
+
+**Einmalige Aktualisierung bei Git-Klon:** `git pull origin main` im
+Erweiterungsordner, danach `chrome://extensions` → „Neu laden“.
+Die installierte Erweiterung muss **v1.2.31** anzeigen.
