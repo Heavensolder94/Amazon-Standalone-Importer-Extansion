@@ -433,7 +433,7 @@
             { environment: 'production' });
           const server = response.ok && Array.isArray(response.body?.candidates)
             ? response.body.candidates : [];
-          const available = [...server, ...recoveryChoicesFromLocalTasks()];
+          const available = [...recoveryChoicesFromLocalTasks(), ...server];
           const deduped = [...new Map(available.filter((candidate) =>
             /^AMZ-[A-Z0-9]{10}$/.test(String(candidate.sku || '').toUpperCase())
             && /^[A-Za-z0-9_-]{3,220}$/.test(String(candidate.taskId || '')))
