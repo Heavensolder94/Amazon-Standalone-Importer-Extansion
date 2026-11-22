@@ -351,7 +351,7 @@
     const saved = (key && savedTasks[key]) || (sourceKey(payload) && savedTasks[sourceKey(payload)]) || null;
     if (!saved?.taskId) {
       // The original Chrome extension may have been replaced and lost localStorage.
-      // Search only the authenticated eBay FX_DRAFT task history by exact SKU.
+      // Search only the authenticated eBay FX_LISTING task history by exact SKU.
       // This action is read-only towards eBay; no new draft can be created.
       setStatus('Keine lokale Task-ID gefunden. Suche vorhandenen eBay-Feed anhand der SKU …', 'warn');
       try {
@@ -403,18 +403,18 @@
       if (!button) return;
       button.disabled = false;
       button.textContent = 'eBay-Entwurf';
-      button.title = 'Sendet einen unveröffentlichten FX_DRAFT-Feed an eBay. Die Sichtbarkeit im Seller Hub muss danach geprüft werden.';
+      button.title = 'Sendet einen unveröffentlichten FX_LISTING-Feed an eBay. Die Sichtbarkeit im Seller Hub muss danach geprüft werden.';
     });
     if (mainButton) {
       mainButton.disabled = false;
-      mainButton.title = 'Sendet einen unveröffentlichten FX_DRAFT-Feed an eBay. Die Sichtbarkeit im Seller Hub muss danach geprüft werden.';
+      mainButton.title = 'Sendet einen unveröffentlichten FX_LISTING-Feed an eBay. Die Sichtbarkeit im Seller Hub muss danach geprüft werden.';
     }
 
     const ebayButton = document.getElementById('prepareDraftEbay');
     const card = ebayButton?.closest('.card');
     const note = card?.querySelector('p.small');
     if (note) {
-      note.textContent = 'Der Button übermittelt einen unveröffentlichten FX_DRAFT-Feed an eBay. Eine erfolgreiche Feed-Verarbeitung ist noch kein Beweis für einen sichtbaren Entwurf: Bitte anschließend unter Angebote → Entwürfe prüfen.';
+      note.textContent = 'Der Button übermittelt einen unveröffentlichten FX_LISTING-Feed an eBay. Eine erfolgreiche Feed-Verarbeitung ist noch kein Beweis für einen sichtbaren Entwurf: Bitte anschließend unter Angebote → Entwürfe prüfen.';
     }
 
     const draftButton = document.getElementById('prepareDraftEbay');
