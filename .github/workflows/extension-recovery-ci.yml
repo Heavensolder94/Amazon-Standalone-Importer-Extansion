@@ -1,0 +1,32 @@
+name: Chrome Importer ASIN-free Draft recovery
+
+on:
+  pull_request:
+    paths:
+      - 'direct-ebay-bridge.js'
+      - 'tests/asin-free-existing-draft-recovery.test.mjs'
+      - 'manifest.json'
+      - '.github/workflows/extension-recovery-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'direct-ebay-bridge.js'
+      - 'tests/asin-free-existing-draft-recovery.test.mjs'
+      - 'manifest.json'
+      - '.github/workflows/extension-recovery-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  recovery-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: node --check direct-ebay-bridge.js
+      - name: Verify recovery is read-only and ASIN-safe
+        run: node --test tests/asin-free-existing-draft-recovery.test.mjs

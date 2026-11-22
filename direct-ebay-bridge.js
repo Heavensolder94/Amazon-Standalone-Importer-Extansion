@@ -128,6 +128,94 @@
     return key ? readDraftTasks()[key] || null : null;
   }
 
+
+  // Kept only in this popup session. Server candidates are read from the
+  // authenticated eBay account; local entries are never trusted as proof.
+  let recoveryCandidates = [];
+
+  function recoveryChoicesFromLocalTasks() {
+    return Object.values(readDraftTasks())
+      .filter((entry) => entry && /^[A-Za-z0-9_-]{3,220}$/.test(String(entry.taskId || ''))
+        && /^AMZ-[A-Z0-9]{10}$/.test(String(entry.sku || '').toUpperCase()))
+      .map((entry) => ({
+        taskId: String(entry.taskId).trim(),
+        sku: String(entry.sku).toUpperCase(),
+        title: 'Gespeicherter Amazon-Entwurf',
+        feedType: String(entry.feedType || '').toUpperCase(),
+      }));
+  }
+
+  function selectedRecoveryChoice() {
+    const selector = document.getElementById('elyonRecoveryDraftChoice');
+    const value = String(selector?.value || '');
+    if (!/^\d{1,2}$/.test(value)) return null;
+    const candidate = recoveryCandidates[Number(value)];
+    return candidate && /^AMZ-[A-Z0-9]{10}$/.test(candidate.sku) && candidate.taskId
+      ? candidate : null;
+  }
+
+  function showRecoveryChoices(candidates) {
+    const button = document.getElementById('syncSellerHubDraft');
+    if (!button) return;
+    const known = new Set();
+    recoveryCandidates = candidates
+      .filter((item) => item && /^AMZ-[A-Z0-9]{10}$/.test(String(item.sku || '').toUpperCase())
+        && /^[A-Za-z0-9_-]{3,220}$/.test(String(item.taskId || '')))
+      .map((item) => ({
+        sku: String(item.sku).toUpperCase(),
+        taskId: String(item.taskId),
+        title: String(item.title || 'Amazon-Entwurf').slice(0, 100),
+      })).filter((item) => {
+        const key = item.sku + ':' + item.taskId;
+        if (known.has(key)) return false;
+        known.add(key);
+        return true;
+      }).slice(0, 12);
+    let label = document.getElementById('elyonRecoveryDraftLabel');
+    if (!label) {
+      label = document.createElement('label');
+      label.id = 'elyonRecoveryDraftLabel';
+      label.style.display = 'block';
+      label.style.margin = '8px 0';
+      label.style.fontSize = '12px';
+      label.textContent = 'Vorhandenen eBay-Entwurf auswählen';
+      const select = document.createElement('select');
+      select.id = 'elyonRecoveryDraftChoice';
+      select.style.width = '100%';
+      select.style.marginTop = '5px';
+      label.appendChild(select);
+      button.insertAdjacentElement('afterend', label);
+    }
+    const select = document.getElementById('elyonRecoveryDraftChoice');
+    select.replaceChildren();
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Bitte einen Entwurf auswählen …';
+    select.appendChild(placeholder);
+    recoveryCandidates.forEach((item, index) => {
+      const option = document.createElement('option');
+      option.value = String(index);
+      option.textContent = item.title + ' · ' + item.sku;
+      select.appendChild(option);
+    });
+    label.style.display = 'block';
+  }
+
+  async function recoverSelectedTask(session, payload, candidate) {
+    // Verify the selected task and its original uploaded CSV/SKU at eBay.
+    // Never creates or uploads another Draft.
+    const response = await requestSellerAction(session, 'recover-draft',
+      feedTaskLookup(payload, candidate.taskId, candidate.sku));
+    if (!response.ok || response.body?.ok !== true) {
+      setStatus(response.body?.message || 'Dieser Entwurf konnte nicht sicher zugeordnet werden. Kein neuer Entwurf erstellt.', 'warn');
+      return;
+    }
+    rememberDraftTask(payload, response.body);
+    const selectorLabel = document.getElementById('elyonRecoveryDraftLabel');
+    if (selectorLabel) selectorLabel.style.display = 'none';
+    setStatus(statusTextFromTask(response.body), draftSyncTone(response.body));
+  }
+
   async function requestSellerAction(session, action, payload) {
     const response = await fetch(SELLER_EXTENSION_ACTION_URL, {
       method: 'POST',
@@ -328,30 +416,78 @@
     try {
       built = typeof safeDraftPayload === 'function' ? safeDraftPayload() : null;
     } catch {}
-    const payload = built?.data || null;
-    if (!payload) {
-      setStatus('Produktdaten für den Abgleich fehlen. Bitte zuerst denselben Amazon-Artikel erneut einlesen.', 'warn');
-      return;
-    }
+    const payload = built?.data || {};
     const identity = resolveRecoverySku(payload);
+    let chosen = null;
     if (identity.error) {
-      setStatus(identity.error, 'warn');
+      if (!identity.error.startsWith('Keine gültige Amazon-ASIN gefunden.')) {
+        setStatus(identity.error, 'warn');
+        return; // Conflicting ASINs are never bypassed by recovered candidates.
+      }
+      chosen = selectedRecoveryChoice();
+      if (!chosen) {
+        setStatus('Keine ASIN mehr im Popup – vorhandene eBay-Draft-Tasks werden gelesen …', 'warn');
+        try {
+          const session = await readSellerSession();
+          const response = await requestSellerAction(session, 'list-draft-recovery-candidates',
+            { environment: 'production' });
+          const server = response.ok && Array.isArray(response.body?.candidates)
+            ? response.body.candidates : [];
+          const available = [...recoveryChoicesFromLocalTasks(), ...server];
+          const deduped = [...new Map(available.filter((candidate) =>
+            /^AMZ-[A-Z0-9]{10}$/.test(String(candidate.sku || '').toUpperCase())
+            && /^[A-Za-z0-9_-]{3,220}$/.test(String(candidate.taskId || '')))
+            .map((candidate) => [String(candidate.sku).toUpperCase() + ':' + candidate.taskId, candidate])).values()];
+          if (!deduped.length) {
+            setStatus((response.body?.message || '') +
+              '\nKein bestehender eBay-Draft mit verifizierbarer Amazon-SKU gefunden. Bitte die ursprüngliche Amazon-Produktseite öffnen oder ihre ASIN eingeben. Es wurde nichts verändert.', 'warn');
+            return;
+          }
+          if (deduped.length > 1) {
+            showRecoveryChoices(deduped);
+            setStatus('Es wurden mehrere frühere Entwürfe gefunden. Bitte den richtigen Entwurf im Auswahlfeld markieren und nochmals „Vorhandenen Entwurf mit ELYON abgleichen“ klicken. Es wird nichts neu angelegt.', 'warn');
+            return;
+          }
+          chosen = deduped[0];
+        } catch (error) {
+          setStatus('Draft-Suche fehlgeschlagen: ' + String(error?.message || 'unbekannt') +
+            '. Bitte die ursprüngliche Amazon-Produktseite öffnen. Kein neuer Entwurf erstellt.', 'warn');
+          return;
+        }
+      }
+    }
+    const verifiedSku = chosen ? String(chosen.sku).toUpperCase() : identity.sku;
+    const originalSource = recoveryAsin(payload.sourceProductId);
+    const recoveryPayload = chosen ? {
+      sku: verifiedSku,
+      sourceProductId: 'amazon:' + verifiedSku.slice(4),
+      environment: 'production',
+      amazonReferencePrice: null,
+      amazonReferenceCapturedAt: ''
+    } : {
+      ...payload,
+      sku: verifiedSku,
+      sourceProductId: originalSource === verifiedSku.slice(4)
+        ? payload.sourceProductId
+        : 'amazon:' + verifiedSku.slice(4)
+    };
+    if (chosen) {
+      setStatus('Ausgewählten bestehenden eBay-Task sicher überprüfen und zuordnen …', 'warn');
+      try {
+        const session = await readSellerSession();
+        await recoverSelectedTask(session, recoveryPayload, chosen);
+      } catch (error) {
+        setStatus('Abgleich fehlgeschlagen: ' + String(error?.message || 'unbekannt') +
+          '. Kein neuer eBay-Entwurf erstellt.', 'warn');
+      }
       return;
     }
-    const originalSource = recoveryAsin(payload.sourceProductId);
-    const recoveryPayload = {
-      ...payload,
-      sku: identity.sku,
-      sourceProductId: originalSource === identity.sku.slice(4)
-        ? payload.sourceProductId
-        : 'amazon:' + identity.sku.slice(4)
-    };
     const key = sourceKey(recoveryPayload);
     const savedTasks = readDraftTasks();
     const saved = (key && savedTasks[key]) || (sourceKey(payload) && savedTasks[sourceKey(payload)]) || null;
     if (!saved?.taskId) {
       // The original Chrome extension may have been replaced and lost localStorage.
-      // Search only the authenticated eBay FX_LISTING task history by exact SKU.
+      // Search only authenticated eBay FX_DRAFT / legacy FX_LISTING history by exact SKU.
       // This action is read-only towards eBay; no new draft can be created.
       setStatus('Keine lokale Task-ID gefunden. Suche vorhandenen eBay-Feed anhand der SKU …', 'warn');
       try {
@@ -403,18 +539,18 @@
       if (!button) return;
       button.disabled = false;
       button.textContent = 'eBay-Entwurf';
-      button.title = 'Sendet einen unveröffentlichten FX_LISTING-Feed an eBay. Die Sichtbarkeit im Seller Hub muss danach geprüft werden.';
+      button.title = 'Sendet einen unveröffentlichten FX_DRAFT-Feed an eBay. Die Sichtbarkeit im Seller Hub muss danach geprüft werden.';
     });
     if (mainButton) {
       mainButton.disabled = false;
-      mainButton.title = 'Sendet einen unveröffentlichten FX_LISTING-Feed an eBay. Die Sichtbarkeit im Seller Hub muss danach geprüft werden.';
+      mainButton.title = 'Sendet einen unveröffentlichten FX_DRAFT-Feed an eBay. Die Sichtbarkeit im Seller Hub muss danach geprüft werden.';
     }
 
     const ebayButton = document.getElementById('prepareDraftEbay');
     const card = ebayButton?.closest('.card');
     const note = card?.querySelector('p.small');
     if (note) {
-      note.textContent = 'Der Button übermittelt einen unveröffentlichten FX_LISTING-Feed an eBay. Eine erfolgreiche Feed-Verarbeitung ist noch kein Beweis für einen sichtbaren Entwurf: Bitte anschließend unter Angebote → Entwürfe prüfen.';
+      note.textContent = 'Der Button übermittelt einen unveröffentlichten FX_DRAFT-Feed an eBay. Eine erfolgreiche Feed-Verarbeitung ist noch kein Beweis für einen sichtbaren Entwurf: Bitte anschließend unter Angebote → Entwürfe prüfen.';
     }
 
     const draftButton = document.getElementById('prepareDraftEbay');
