@@ -8,11 +8,12 @@ const injection = "  sellerLifecycleAction = directSellerLifecycleAction;\n})();
 assert.ok(source.includes(injection), "recovery source injection anchor changed");
 const instrumented = source.replace(injection, [
   "  sellerLifecycleAction = directSellerLifecycleAction;",
-  "  globalThis.__draftRecoveryTest = { syncExistingSellerHubDraft, restoreRecoveryChoices, initSellerHubDraftFlow };",
+  "  globalThis.__draftRecoveryTest = { syncExistingSellerHubDraft, restoreRecoveryChoices, initSellerHubDraftFlow, markSelectedFeedManuallyDeleted };",
   "})();",
 ].join("\n"));
 
-function createHarness(candidates, { product = null, asin = "", previousCache = null } = {}) {
+function createHarness(candidates, { product = null, asin = "", previousCache = null,
+  cleanupConfirmed = true, cleanupPreviewError = false, cleanupTaskId = "registered-elyon-task", cleanupTitle = "Moxled Lichterkette" } = {}) {
   const actions = [];
   const statuses = [];
   const cache = previousCache || new Map();
@@ -47,6 +48,11 @@ function createHarness(candidates, { product = null, asin = "", previousCache = 
       listeners: {},
       addEventListener(name, callback) { this.listeners[name] = callback; },
     },
+    elyonRecoveryDraftDeleteInElyon: {
+      disabled: true,
+      listeners: {},
+      addEventListener(name, callback) { this.listeners[name] = callback; },
+    },
   };
   const doc = {
     readyState: "loading",
@@ -59,6 +65,9 @@ function createHarness(candidates, { product = null, asin = "", previousCache = 
   const ctx = {
     document: doc,
     URL,
+    window: {
+      confirm(message) { events.confirmMessage = message; return cleanupConfirmed; }
+    },
     state: { product },
     localStorage: {
       getItem: key => cache.get(key) ?? null,
@@ -88,6 +97,27 @@ function createHarness(candidates, { product = null, asin = "", previousCache = 
           sellerHubVisibility: "not_verified",
         }) };
       }
+      if (body.action === "preview-deleted-feed") {
+        return { ok: !cleanupPreviewError, status: cleanupPreviewError ? 409 : 200, json: async () => (
+          cleanupPreviewError ? { ok: false, message: "Mehrere aktive ELYON-Einträge" } : {
+            ok: true, record: {
+              sku: body.payload.sku,
+              externalTaskId: cleanupTaskId,
+              title: cleanupTitle,
+              state: "draft",
+            },
+          }
+        ) };
+      }
+      if (body.action === "mark-deleted-feed") {
+        return { ok: true, status: 200, json: async () => ({
+          ok: true, state: "removed",
+          sku: body.payload.sku,
+          externalTaskId: body.payload.externalTaskId,
+          ebayChanged: false, productDeleted: false,
+        }) };
+      }
+
       throw new Error("unexpected side-effect action " + body.action);
     },
   };
@@ -162,6 +192,59 @@ test("recovery panel is in static popup markup near the status, outside the two-
   assert.ok(statusAt >= 0 && panelAt > statusAt && ebayAt > panelAt);
   assert.match(html, /id="elyonRecoveryDraftConfirm"/);
   assert.match(html, /id="elyonRecoveryDraftChoice"/);
+});
+
+
+test("user-confirmed deleted Moxled Feed is marked removed only in ELYON, by registry task, not selected history task", async () => {
+  const choices = [
+    ...one, { sku: "AMZ-B0D63HF7Z4", taskId: "old-ebay-feed-task", title: "Moxled Lichterkette" },
+  ];
+  const h = createHarness(choices);
+  await h.ctx.__draftRecoveryTest.syncExistingSellerHubDraft(click);
+  h.ctx.__draftRecoveryTest.initSellerHubDraftFlow();
+  h.elements.elyonRecoveryDraftChoice.value = "1";
+  h.elements.elyonRecoveryDraftChoice.listeners.change();
+  assert.equal(h.elements.elyonRecoveryDraftDeleteInElyon.disabled, false);
+  await h.elements.elyonRecoveryDraftDeleteInElyon.listeners.click(click);
+  assert.deepEqual(h.actions.map(x => x.action), [
+    "list-draft-recovery-candidates", "preview-deleted-feed", "mark-deleted-feed",
+  ]);
+  assert.equal(h.actions[2].payload.externalTaskId, "registered-elyon-task");
+  assert.equal(h.actions[2].payload.sku, "AMZ-B0D63HF7Z4");
+  assert.equal(h.actions[2].payload.confirmation, "EBAY_DRAFT_ALREADY_DELETED");
+  assert.match(h.events.confirmMessage, /Moxled/);
+  assert.match(h.events.confirmMessage, /ausgewählte eBay-Task weicht/i);
+  assert.match(h.statuses.at(-1).message, /ELYON bereinigt/);
+  assert.equal(h.elements.elyonRecoveryDraftPanel.classList.contains("hidden"), true);
+  const suppressKey = "elyon_amazon_importer_manually_deleted_feed_tasks_v1";
+  assert.ok(h.cache.has(suppressKey));
+  const removed = JSON.parse(h.cache.get(suppressKey));
+  assert.equal(removed.length, 2);
+  assert.ok(!h.actions.some(x => ["create-draft", "publish", "withdraw"].includes(x.action)));
+});
+
+test("deletion prompt cancellation does not touch the ELYON registry", async () => {
+  const h = createHarness([...one, { sku: "AMZ-B0D63HF7Z4", taskId: "old-ebay-feed-task", title: "Moxled" }],
+    { cleanupConfirmed: false });
+  await h.ctx.__draftRecoveryTest.syncExistingSellerHubDraft(click);
+  h.ctx.__draftRecoveryTest.initSellerHubDraftFlow();
+  h.elements.elyonRecoveryDraftChoice.value = "1";
+  h.elements.elyonRecoveryDraftChoice.listeners.change();
+  await h.elements.elyonRecoveryDraftDeleteInElyon.listeners.click(click);
+  assert.deepEqual(h.actions.map(x => x.action), ["list-draft-recovery-candidates", "preview-deleted-feed"]);
+  assert.match(h.statuses.at(-1).message, /abgebrochen/);
+});
+
+test("ambiguous registry preview blocks deletion and keeps user's existing selection", async () => {
+  const h = createHarness([...one, { sku: "AMZ-B0D63HF7Z4", taskId: "old-ebay-feed-task", title: "Moxled" }],
+    { cleanupPreviewError: true });
+  await h.ctx.__draftRecoveryTest.syncExistingSellerHubDraft(click);
+  h.ctx.__draftRecoveryTest.initSellerHubDraftFlow();
+  h.elements.elyonRecoveryDraftChoice.value = "1";
+  h.elements.elyonRecoveryDraftChoice.listeners.change();
+  await h.elements.elyonRecoveryDraftDeleteInElyon.listeners.click(click);
+  assert.deepEqual(h.actions.map(x => x.action), ["list-draft-recovery-candidates", "preview-deleted-feed"]);
+  assert.equal(h.elements.elyonRecoveryDraftPanel.classList.contains("hidden"), false);
 });
 
 test("contradicting loaded Amazon ASINs block discovery without changing eBay", async () => {

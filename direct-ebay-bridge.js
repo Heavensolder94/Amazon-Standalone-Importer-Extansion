@@ -8,6 +8,7 @@
   const DRAFT_TASKS_STORAGE_KEY = 'elyon_amazon_importer_seller_hub_draft_tasks_v1';
   const RECOVERY_CHOICES_STORAGE_KEY = 'elyon_amazon_importer_recovery_choices_v1';
   const RECOVERY_CHOICES_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+  const DELETED_TASKS_STORAGE_KEY = 'elyon_amazon_importer_manually_deleted_feed_tasks_v1';
   const SELLER_SESSION_ORIGINS = [
     'https://elyonsellertool.vercel.app/',
     'https://elyon-seller-tool.vercel.app/'
@@ -135,8 +136,44 @@
   // authenticated eBay account; local entries are never trusted as proof.
   let recoveryCandidates = [];
 
+  function readDeletedTaskIds() {
+    try {
+      const items = JSON.parse(localStorage.getItem(DELETED_TASKS_STORAGE_KEY) || '[]');
+      if (!Array.isArray(items)) return new Set();
+      const now = Date.now();
+      return new Set(items.filter(entry => entry && Number(entry.savedAt) > now - 30 * 24 * 60 * 60 * 1000)
+        .map(entry => String(entry.taskId || '')).filter(Boolean));
+    } catch { return new Set(); }
+  }
+
+  function rememberDeletedTasks(taskIds) {
+    try {
+      const now = Date.now();
+      const previous = JSON.parse(localStorage.getItem(DELETED_TASKS_STORAGE_KEY) || '[]');
+      const current = Array.isArray(previous) ? previous.filter(item =>
+        item && Number(item.savedAt) > now - 30 * 24 * 60 * 60 * 1000) : [];
+      const map = new Map(current.filter(entry => entry.taskId).map(entry => [String(entry.taskId), entry]));
+      for (const taskId of taskIds) {
+        const id = String(taskId || '').trim();
+        if (id) map.set(id, { taskId: id, savedAt: now });
+      }
+      localStorage.setItem(DELETED_TASKS_STORAGE_KEY, JSON.stringify([...map.values()].slice(-100)));
+    } catch {}
+  }
+
+  function forgetDeletedDraftLocalCache(sku) {
+    const target = String(sku || '').toUpperCase();
+    const tasks = readDraftTasks();
+    for (const [key, entry] of Object.entries(tasks)) {
+      if (String(entry?.sku || '').toUpperCase() === target) delete tasks[key];
+    }
+    writeDraftTasks(tasks);
+  }
+
   function recoveryChoicesFromLocalTasks() {
+    const removed = readDeletedTaskIds();
     return Object.values(readDraftTasks())
+      .filter((entry) => !removed.has(String(entry?.taskId || '')))
       .filter((entry) => entry && /^[A-Za-z0-9_-]{3,220}$/.test(String(entry.taskId || ''))
         && /^AMZ-[A-Z0-9]{10}$/.test(String(entry.sku || '').toUpperCase()))
       .map((entry) => ({
@@ -162,12 +199,15 @@
     const panel = document.getElementById('elyonRecoveryDraftPanel');
     const select = document.getElementById('elyonRecoveryDraftChoice');
     const confirm = document.getElementById('elyonRecoveryDraftConfirm');
+    const cleanup = document.getElementById('elyonRecoveryDraftDeleteInElyon');
     if (!panel || !select || !confirm) {
       setStatus('Die Entwurfsauswahl ist im aktuellen Erweiterungs-Popup nicht vorhanden. Bitte Chrome-Erweiterung aktualisieren und neu laden.', 'err');
       return false;
     }
     const seen = new Set();
+    const deletedTasks = readDeletedTaskIds();
     recoveryCandidates = (Array.isArray(candidates) ? candidates : [])
+      .filter(item => !deletedTasks.has(String(item?.taskId || '')))
       .filter(item => item && /^AMZ-[A-Z0-9]{10}$/.test(String(item.sku || '').toUpperCase())
         && /^[A-Za-z0-9_-]{3,220}$/.test(String(item.taskId || '')))
       .map(item => ({
@@ -194,6 +234,7 @@
     });
     select.value = '';
     confirm.disabled = true;
+    if (cleanup) cleanup.disabled = true;
     panel.classList.remove('hidden');
     if (persist) {
       try {
@@ -237,6 +278,82 @@
     rememberDraftTask(payload, response.body);
     clearRecoveryChoices();
     setStatus(statusTextFromTask(response.body), draftSyncTone(response.body));
+  }
+
+
+  async function markSelectedFeedManuallyDeleted(event) {
+    event?.preventDefault?.();
+    event?.stopImmediatePropagation?.();
+    const selected = selectedRecoveryChoice();
+    if (!selected) {
+      setStatus('Bitte zuerst den bei eBay gelöschten Artikel im gelben Auswahlfeld markieren.', 'warn');
+      return;
+    }
+    const previewPayload = { sku: selected.sku, environment: 'production' };
+    const cleanupButton = document.getElementById('elyonRecoveryDraftDeleteInElyon');
+    if (cleanupButton) cleanupButton.disabled = true;
+    try {
+      const session = await readSellerSession();
+      const preview = await requestSellerAction(session, 'preview-deleted-feed', previewPayload);
+      const record = preview.body?.record;
+      if (!preview.ok || !preview.body?.ok || !record) {
+        setStatus(preview.body?.message ||
+          'Keine eindeutige ELYON-Zuordnung für diesen Artikel gefunden. Es wurde nichts geändert.', 'warn');
+        return;
+      }
+      if (String(record.sku || '').toUpperCase() !== selected.sku ||
+          !String(record.externalTaskId || '').trim() || record.state !== 'draft') {
+        setStatus('Die gespeicherte ELYON-Zuordnung stimmt nicht mit dem ausgewählten Amazon-Artikel überein. Keine Änderung.', 'warn');
+        return;
+      }
+      // The recovered eBay task history can differ from ELYON's active task.
+      // Show BOTH identities to the user and only update the ELYON one.
+      const question = [
+        'Wurde dieser eBay-Entwurf wirklich im Seller Hub gelöscht?',
+        '',
+        'Ausgewählter Artikel: ' + selected.title,
+        'SKU: ' + selected.sku,
+        'ELYON-Datensatz: ' + (record.title || 'Ohne Titel'),
+        'ELYON-Task-ID: ' + record.externalTaskId,
+        selected.taskId !== record.externalTaskId
+          ? 'Hinweis: Die ausgewählte eBay-Task weicht von der ELYON-Task ab.' : '',
+        '',
+        'Nur dieser konkrete ELYON-Feed-Entwurf wird als ENTFERNT markiert.',
+        'Es wird nichts bei eBay gelöscht, neu erstellt oder veröffentlicht.',
+        'Die Historie und alle anderen Artikel bleiben bestehen.',
+      ].filter(Boolean).join('\n');
+      if (typeof window?.confirm !== 'function' || window.confirm(question) !== true) {
+        setStatus('Bereinigung abgebrochen. Keine Daten geändert.', 'warn');
+        return;
+      }
+      const result = await requestSellerAction(session, 'mark-deleted-feed', {
+        sku: selected.sku,
+        externalTaskId: record.externalTaskId,
+        environment: 'production',
+        confirmation: 'EBAY_DRAFT_ALREADY_DELETED'
+      });
+      const body = result.body || {};
+      if (!result.ok || body.ok !== true || body.state !== 'removed'
+          || String(body.sku || '').toUpperCase() !== selected.sku
+          || String(body.externalTaskId || '') !== record.externalTaskId) {
+        setStatus(body.message || 'Die ELYON-Bereinigung wurde nicht bestätigt. Es wurde kein neuer Entwurf erstellt.', 'warn');
+        return;
+      }
+      // Invalidate only local references to the deleted Feed. Historical
+      // eBay tasks may still appear in the API's activity log, so suppress
+      // these two precise task IDs locally without hiding new tasks by SKU.
+      rememberDeletedTasks([selected.taskId, record.externalTaskId]);
+      forgetDeletedDraftLocalCache(selected.sku);
+      clearRecoveryChoices();
+      setStatus('ELYON bereinigt ✅\nDer bereits bei eBay gelöschte Artikel ' +
+        selected.sku + ' ist im ELYON-Register als „entfernt“ gespeichert.\n' +
+        'Task-ID und Historie bleiben erhalten. eBay wurde nicht verändert.', 'ok');
+    } catch (error) {
+      setStatus('ELYON-Bereinigung fehlgeschlagen: ' + String(error?.message || 'unbekannt') +
+        '. Es wurde kein neuer Entwurf erstellt.', 'err');
+    } finally {
+      if (cleanupButton) cleanupButton.disabled = !selectedRecoveryChoice();
+    }
   }
 
   async function requestSellerAction(session, action, payload) {
@@ -462,7 +579,9 @@
           const server = response.ok && Array.isArray(response.body?.candidates)
             ? response.body.candidates : [];
           const available = [...recoveryChoicesFromLocalTasks(), ...server];
-          const deduped = [...new Map(available.filter((candidate) =>
+          const deleted = readDeletedTaskIds();
+          const deduped = [...new Map(available.filter(candidate => !deleted.has(String(candidate?.taskId || '')))
+            .filter((candidate) =>
             /^AMZ-[A-Z0-9]{10}$/.test(String(candidate.sku || '').toUpperCase())
             && /^[A-Za-z0-9_-]{3,220}$/.test(String(candidate.taskId || '')))
             .map((candidate) => [String(candidate.sku).toUpperCase() + ':' + candidate.taskId, candidate])).values()];
@@ -631,13 +750,17 @@
     installDraftHandlers();
     const select = document.getElementById('elyonRecoveryDraftChoice');
     const confirm = document.getElementById('elyonRecoveryDraftConfirm');
+    const cleanup = document.getElementById('elyonRecoveryDraftDeleteInElyon');
     if (select && confirm) {
       select.addEventListener('change', () => {
-        confirm.disabled = !selectedRecoveryChoice();
+        const missing = !selectedRecoveryChoice();
+        confirm.disabled = missing;
+        if (cleanup) cleanup.disabled = missing;
       });
       confirm.addEventListener('click', async (event) => {
         if (selectedRecoveryChoice()) await syncExistingSellerHubDraft(event);
       });
+      if (cleanup) cleanup.addEventListener('click', markSelectedFeedManuallyDeleted);
     }
     // The popup is destroyed when Chrome closes it. Restore previously
     // discovered candidate choices so a user can open it again and select.
