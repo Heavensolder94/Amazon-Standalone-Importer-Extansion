@@ -74,7 +74,7 @@ test("missing local task ID: verified Feed recovery completes without a batch he
   assert.equal(requests[0].args.amazonReferencePrice, 12.91);
   assert.equal(recorded.length, 1);
   assert.equal(recorded[0].body.taskId, "existing-task-dreamzie");
-  assert.equal(statuses.at(-1).level, "ok");
+  assert.equal(statuses.at(-1).level, "warn"); // Feed confirmation cannot establish Seller Hub visibility.
   assert.match(statuses.at(-1).message, /Amazon-EK-Referenz übertragen/);
   assert.ok(!statuses.some(({ message }) => /updateBatchDraft is not defined|Wiederherstellung fehlgeschlagen/.test(message)));
   assert.ok(!requests.some(({ action }) => action === "create-draft"));
@@ -85,7 +85,7 @@ test("already saved task ID uses status check, never recreates or searches the d
   await ctx.runRecovery();
   assert.equal(requests.length, 0);
   assert.equal(recorded.length, 0);
-  assert.equal(statuses.at(-1).level, "ok");
+  assert.equal(statuses.at(-1).level, "warn"); // Feed confirmation cannot establish Seller Hub visibility.
 });
 
 test("backend recovery failure stays a warning and never records a fictitious task", async () => {
@@ -119,7 +119,7 @@ test("missing or invalid draft SKU recovers from original loaded Amazon product 
   assert.equal(recorded.length, 1);
   assert.equal(recorded[0].item.sku, "AMZ-B0BWND9WBR");
   assert.equal(recorded[0].item.sourceProductId, "amazon:B0BWND9WBR");
-  assert.equal(statuses.at(-1).level, "ok");
+  assert.equal(statuses.at(-1).level, "warn"); // Feed confirmation cannot establish Seller Hub visibility.
 });
 
 test("valid sourceProductId rescues an empty SKU even when product state is unavailable", async () => {
@@ -130,7 +130,7 @@ test("valid sourceProductId rescues an empty SKU even when product state is unav
   await ctx.runRecovery();
   assert.equal(requests.length, 1);
   assert.equal(requests[0].args.sku, "AMZ-B0BWND9WBR");
-  assert.equal(statuses.at(-1).level, "ok");
+  assert.equal(statuses.at(-1).level, "warn"); // Feed confirmation cannot establish Seller Hub visibility.
 });
 
 test("ASIN from the popup field can recover an otherwise incomplete product record", async () => {
